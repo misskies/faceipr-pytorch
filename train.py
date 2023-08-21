@@ -257,7 +257,6 @@ if __name__ == "__main__":
         #------------------------------------------------------#
         #   根据预训练权重的Key和模型的Key进行加载
         #------------------------------------------------------#
-        dicts = torch.load("/home/lsf/facenet-pytorch/trained_weight/faceweb_md_mobilenet_Decoder-5FC/32/ep013-loss0.732-val_loss2.137.pth",map_location = device)
         model_dict      = model.state_dict()
         pretrained_dict = torch.load(model_path, map_location = device)
         load_key, no_load_key, temp_dict = [], [], {}
@@ -272,9 +271,6 @@ if __name__ == "__main__":
                 no_load_key.append(k)
         model_dict.update(temp_dict)
         model.load_state_dict(model_dict)
-        for i in dicts.keys():
-            if i not in pretrained_dict.keys():
-                print(i)
         #------------------------------------------------------#
         #   显示没有匹配上的Key
         #------------------------------------------------------#
