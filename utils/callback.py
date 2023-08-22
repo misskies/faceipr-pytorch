@@ -136,3 +136,9 @@ class LossHistory():
             os.makedirs(self.log_dir)
         
         torch.save(tensor, os.path.join(self.log_dir, filename)) 
+    
+    def save_model(self, model, filename="model.pth"):
+        if not os.path.exists(self.log_dir):
+            os.makedirs(self.log_dir)
+        
+        torch.save(model.state_dict(), os.path.join(self.log_dir, filename))
