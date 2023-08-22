@@ -7,6 +7,7 @@ matplotlib.use('Agg')
 import scipy.signal
 from matplotlib import pyplot as plt
 from torch.utils.tensorboard import SummaryWriter
+import yaml
 
 class LossHistory():
     def __init__(self, log_dir, model, input_shape,watermark_size):
@@ -122,3 +123,16 @@ class LossHistory():
         plt.savefig(os.path.join(self.log_dir, "epoch_acc.png"))
         plt.cla()
         plt.close("all")
+    
+    def save_args(self, args, filename="args.yaml"):
+        if not os.path.exists(self.log_dir):
+            os.makedirs(self.log_dir)
+
+        with open(os.path.join(self.log_dir, filename), 'w') as file:
+            yaml.dump(vars(args), file)
+
+    def save_tensor(self, tensor, filename="tensor.pt"):
+        if not os.path.exists(self.log_dir):
+            os.makedirs(self.log_dir)
+        
+        torch.save(tensor, os.path.join(self.log_dir, filename)) 
