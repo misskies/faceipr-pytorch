@@ -84,7 +84,7 @@ class E_watermark(nn.Module):
 def Noise_injection(feature_in,robustness="none",noise_power=0.1):
     noise_scale = noise_power
     flip_prob = noise_power
-
+    round_scale = int(noise_power)
     if robustness == "noise":
         # the noise scale is set to 0.1 temporarily
         feature_perb = feature_in + torch.randn_like(feature_in) * noise_scale
@@ -95,10 +95,22 @@ def Noise_injection(feature_in,robustness="none",noise_power=0.1):
     elif robustness == "combine":
         mask = torch.rand_like(feature_in) < flip_prob
         feature_perb = feature_in * (-1) ** mask + torch.randn_like(feature_in) * noise_scale
+    elif robustness == "round" :
+        assert round_scale >= 0
+        feature_in = feature_in * (10**round_scale)
+        feature_in = torch.round(feature_in)
+        feature_perb = feature_in / (10**round_scale)
+    elif robustness == "random_del" :
+        random = torch.randn_like(feature_in)
+        zero = torch.zeros_like(random)
+        one = torch.ones_like(random)
+        random = torch.where(random <= noise_power,zero,random)
+        random = torch.where(random > noise_power, one, random)
+        feature_perb = random * feature_in
     elif robustness == "none":
         feature_perb = feature_in
     else:
-        raise ValueError("robustness should be one of [noise, flip, combine, none]")
+        raise ValueError("robustness should be one of [noise, flip, combine,round,random_del,none]")
     return  feature_perb
 
 
