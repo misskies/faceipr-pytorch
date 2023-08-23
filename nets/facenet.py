@@ -12,6 +12,7 @@ from nets.inception_resnetv1 import InceptionResnetV1
 from nets.mobilenet import MobileNetV1, watermark_MobileNetV1
 from nets.baseline import embed_watermark ,extract_watermark
 import nets.model as md
+from nets.resnet import ModifiedMdResNet34
 
 def linear(inp,oup):
     return nn.Sequential(
@@ -236,6 +237,9 @@ class Facenet(nn.Module):
         elif backbone == "inception_resnetv1":
             self.backbone = inception_resnet(pretrained)
             flat_shape = 1792
+        elif backbone == "resnet34":
+            self.backbone =ModifiedMdResNet34(watermark_size=watermark_size)
+            flat_shape = 1024
         else:
             raise ValueError('Unsupported backbone - `{}`, Use mobilenet, inception_resnetv1.'.format(backbone))
         self.robustness=robustness
