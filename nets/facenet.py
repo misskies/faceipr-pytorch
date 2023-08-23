@@ -145,6 +145,25 @@ class D_watermark(nn.Module):
         watermark_out=self.stage(feature_in)
         #watermark_out=self.style(feature_in)
         return watermark_out
+    
+    
+class D_watermark_128(nn.Module):
+    def __init__(self,watermark_size=32,lr_mlp=0.01, robustness="none"):
+        super(D_watermark_128,self).__init__()
+        self.stage=nn.Sequential(
+            linear(128,128),
+            linear(128,64),
+            linear(64,32),
+            linear(32,16),
+            nn.Linear(16,watermark_size)
+        )
+        self.robustness = robustness
+    def forward(self,feature_in):
+
+        watermark_out=self.stage(feature_in)
+        #watermark_out=self.style(feature_in)
+        return watermark_out
+
 
 class Discriminator(nn.Module):
     def __init__(self, size, channel_multiplier=2, blur_kernel=[1, 3, 3, 1]):
@@ -313,11 +332,128 @@ class Facenet(nn.Module):
         x = self.classifier(x)
         return x
 
+class Facenet_128(nn.Module):
+    def __init__(self,backbone="mobilenet", dropout_keep_prob=0.5, embedding_size=128, num_classes=None, mode="train", pretrained=False,watermark_size=32, robustness="none",noise_power=0.1):
+        super(Facenet_128, self).__init__()
+
+        if backbone == "mobilenet":
+            self.backbone =watermark_MobileNetV1(watermark_size=watermark_size)
+            flat_shape = 1024
+        elif backbone == "inception_resnetv1":
+            self.backbone = inception_resnet(pretrained)
+            flat_shape = 1792
+        else:
+            raise ValueError('Unsupported backbone - `{}`, Use mobilenet, inception_resnetv1.'.format(backbone))
+        self.robustness=robustness
+        self.noise_power=noise_power
+        self.watermark_Encoder=E_watermark(watermark_size=watermark_size)
+        self.watermark_Decoder=D_watermark_128(watermark_size=watermark_size, robustness=robustness)
+        self.avg        = nn.AdaptiveAvgPool2d((1,1))
+        self.Dropout    = nn.Dropout(1 - dropout_keep_prob)
+        self.Bottleneck = nn.Linear(flat_shape, embedding_size,bias=False)
+        self.last_bn    = nn.BatchNorm1d(embedding_size, eps=0.001, momentum=0.1, affine=True)
+        if mode == "train":
+            self.classifier = nn.Linear(embedding_size, num_classes)
+
+    def forward(self, x,watermark_in,mode = "predict"):
+        if mode == 'predict':
+            watermark_out = self.watermark_Encoder(watermark_in)
+            x = self.backbone(x, watermark_out)
+            x = self.avg(x)
+            x = x.view(x.size(0), -1)
+            x = self.Dropout(x)
+            x = self.Bottleneck(x)
+            x = self.last_bn(x)
+            x = F.normalize(x, p=2, dim=1)
+
+            x=Noise_injection(x,robustness=self.robustness,noise_power=self.noise_power)
+            watermark_fin=self.watermark_Decoder(x)
+            return x,watermark_fin
+
+        if mode == 'origin':
+            watermark_out = None
+            x = self.backbone(x, watermark_out)
+            x = self.avg(x)
+            x = x.view(x.size(0), -1)
+            x = self.Dropout(x)
+            x = self.Bottleneck(x)
+            before_normalize = self.last_bn(x)  # feature
+            x = F.normalize(x, p=2, dim=1)
+            cls = self.classifier(before_normalize)
+            return x,cls
+
+        if mode == 'Unmd_predict':
+            watermark_out = None
+            x = self.backbone(x, watermark_out)
+            x = self.avg(x)
+            x = x.view(x.size(0), -1)
+            x = self.Dropout(x)
+            x = self.Bottleneck(x)
+            x = self.last_bn(x)
+            x = F.normalize(x, p=2, dim=1)
+
+            watermark_fin=self.watermark_Decoder(x)
+            return x,watermark_fin
+
+        if mode == 'LSB':
+            watermark_out=None
+            x = self.backbone(x, watermark_out)
+            x = self.avg(x)
+            x = x.view(x.size(0), -1)
+            x = self.Dropout(x)
+            x = self.Bottleneck(x)
+            x = self.last_bn(x)
+            x = F.normalize(x, p=2, dim=1)
+            
+            x = embed_watermark(x,watermark_in) #watermakred_embedding
+            x=Noise_injection(x,robustness=self.robustness,noise_power=self.noise_power)
+            watermark_fin= extract_watermark(x,1024)
+
+            return x,watermark_fin
+
+        watermark_out=self.watermark_Encoder(watermark_in)
+        x = self.backbone(x,watermark_out)
+        #x(5,5,1024)
+        x = self.avg(x)
+        #x(1,1,1024)
+        x = x.view(x.size(0), -1)#(batch,1024)
+        x = self.Dropout(x)
+        x = self.Bottleneck(x)
+        before_normalize = self.last_bn(x)#feature
+        #add Decoder
+        x = F.normalize(before_normalize, p=2, dim=1)
+        cls = self.classifier(before_normalize)
+        watermark_fin = self.watermark_Decoder(x)
+        return x, cls,watermark_fin
+
+    def forward_feature(self, x,watermark_in):
+        watermark_out = self.watermark_Encoder(watermark_in)
+        x = self.backbone(x, watermark_out)
+        #x(5,5,1024)
+        x = self.avg(x)
+        x = x.view(x.size(0), -1)
+        x = self.Dropout(x)
+        x = self.Bottleneck(x)
+        before_normalize = self.last_bn(x)
+        x = F.normalize(before_normalize, p=2, dim=1)
+        watermark_fin = self.watermark_Decoder(x)
+        return before_normalize, x,watermark_in
+
+    def forward_classifier(self, x):
+        x = self.classifier(x)
+        return x
+
+
+
+
+
+
 class Facenet_loss(nn.Module):
     def __init__(self, backbone="mobilenet", dropout_keep_prob=0.5, embedding_size=128, num_classes=None, mode="train", pretrained=False):
         super(Facenet_loss, self).__init__()
         if backbone == "mobilenet":
-            self.backbone = mobilenet(pretrained)
+            # self.backbone = mobilenet(pretrained)
+            self.backbone = watermark_MobileNetV1(pretrained)
             flat_shape = 1024
         elif backbone == "inception_resnetv1":
             self.backbone = inception_resnet(pretrained)
@@ -331,32 +467,32 @@ class Facenet_loss(nn.Module):
         if mode == "train":
             self.classifier = nn.Linear(embedding_size, num_classes)
         self.Tanh=nn.Tanh()
-    def forward(self, x,watermark_in,mode = "predict"):
+    def forward(self, x, watermark_in=None, mode = "predict"):
         if mode == 'predict':
-            x = self.backbone(x)
+            watermark_out = None
+            x = self.backbone(x, watermark_out)
             x = self.avg(x)
             x = x.view(x.size(0), -1)
-            watermark_out = self.Tanh(x)
             x = self.Dropout(x)
             x = self.Bottleneck(x)
             x = self.last_bn(x)
             x = F.normalize(x, p=2, dim=1)
-            return x,watermark_out
+            return x, x
 
-        x = self.backbone(x)
+        watermark_out = None
+        x = self.backbone(x, watermark_out)
         x = self.avg(x)
         x = x.view(x.size(0), -1)
-        watermark_out = self.Tanh(x)
         x = self.Dropout(x)
         x = self.Bottleneck(x)
         before_normalize = self.last_bn(x)
-
         x = F.normalize(before_normalize, p=2, dim=1)
         cls = self.classifier(before_normalize)
-        return x, cls,watermark_out
+        return x, cls
 
     def forward_feature(self, x):
-        x = self.backbone(x)
+        watermark_out = None
+        x = self.backbone(x, watermark_out)
         x = self.avg(x)
         x = x.view(x.size(0), -1)
         x = self.Dropout(x)

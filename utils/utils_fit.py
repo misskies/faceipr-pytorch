@@ -41,7 +41,7 @@ class AutomaticWeightedLoss(nn.Module):
 
 def fit_one_epoch(model_train, model, loss_history, loss, loss2, optimizer, epoch, epoch_step, epoch_step_val, gen,
                   gen_val, Epoch, cuda, test_loader, Batch_size, lfw_eval_flag, fp16, scaler, save_period, save_dir,
-                  local_rank, watermark_size,loss_baseline):
+                  local_rank, watermark_size,loss_baseline, loss_baseline_watermark_in, loss_baseline_lambda):
     total_triple_loss = 0
     total_CE_loss = 0
     total_accuracy = 0
@@ -69,14 +69,22 @@ def fit_one_epoch(model_train, model, loss_history, loss, loss2, optimizer, epoc
                 images = images.cuda(local_rank)
                 labels = labels.cuda(local_rank)
                 watermark_in = watermark_in.cuda(local_rank)
+                
+                if loss_baseline_watermark_in is not None:
+                    loss_baseline_watermark_in = loss_baseline_watermark_in.cuda(local_rank)
 
         optimizer.zero_grad()
         if not fp16:
-            outputs1, outputs2, outputs3 = model_train(images, watermark_in, "train")
+
             if loss_baseline:
-                lambda_watermark = 1
-                _watermark_loss =  nn.MSELoss()(outputs3, watermark_in) *lambda_watermark
+                outputs1, outputs2 = model_train(images, mode="train") # 128 demension feature and cls
+                # transfer loss_baseline_watermark to [-1,1] 
+                scaled_loss_baseline_watermark_in = loss_baseline_watermark_in * 2 -1
+                # lambda_watermark = 1
+                _watermark_loss =  nn.MSELoss()(outputs1, scaled_loss_baseline_watermark_in) *loss_baseline_lambda
             else:
+
+                outputs1, outputs2, outputs3 = model_train(images, watermark_in, "train")
                 _watermark_loss = loss2(outputs3, watermark_in)
             _triplet_loss = loss(outputs1, Batch_size)
             _CE_loss = nn.NLLLoss()(F.log_softmax(outputs2, dim=-1), labels)
@@ -102,7 +110,7 @@ def fit_one_epoch(model_train, model, loss_history, loss, loss2, optimizer, epoc
 
         with torch.no_grad():
             if loss_baseline:
-                y=extract_binary_watermark(outputs3)
+                y=extract_binary_watermark(outputs1)
             else:
                 m = torch.nn.Sigmoid()
                 y = m(outputs3)
@@ -110,7 +118,11 @@ def fit_one_epoch(model_train, model, loss_history, loss, loss2, optimizer, epoc
                 one = torch.ones_like(y)
                 y = torch.where(y >= 0.5, one, y)
                 y = torch.where(y < 0.5, zero, y)
-            wm_accuracy = torch.mean((y == watermark_in).type(torch.FloatTensor))
+
+            if loss_baseline:
+                wm_accuracy = torch.mean((y == loss_baseline_watermark_in).type(torch.FloatTensor))
+            else:
+                wm_accuracy = torch.mean((y == watermark_in).type(torch.FloatTensor))
             accuracy = torch.mean((torch.argmax(F.softmax(outputs2, dim=-1), dim=-1) == labels).type(torch.FloatTensor))
         total_watermark_loss += _watermark_loss.item()
         total_triple_loss += _triplet_loss.item()
@@ -146,18 +158,21 @@ def fit_one_epoch(model_train, model, loss_history, loss, loss2, optimizer, epoc
                 watermark_in = watermark_in.cuda(local_rank)
 
             optimizer.zero_grad()
-            outputs1, outputs2, outputs3 = model_train(images, watermark_in, "train")
             if loss_baseline:
-                lambda_watermark= 1
-                _watermark_loss =  nn.MSELoss()(outputs3, watermark_in) * lambda_watermark
+                outputs1, outputs2 = model_train(images, mode="train") # 128 demension feature and cls
+                # transfer loss_baseline_watermark to [-1,1] 
+                scaled_loss_baseline_watermark_in = loss_baseline_watermark_in * 2 -1
+                # lambda_watermark = 1
+                _watermark_loss =  nn.MSELoss()(outputs1, scaled_loss_baseline_watermark_in) * loss_baseline_lambda
             else:
+                outputs1, outputs2, outputs3 = model_train(images, watermark_in, "train")
                 _watermark_loss = loss2(outputs3, watermark_in)
             _triplet_loss = loss(outputs1, Batch_size)
             _CE_loss = nn.NLLLoss()(F.log_softmax(outputs2, dim=-1), labels)
             _loss = _triplet_loss + _CE_loss + _watermark_loss
 
             if loss_baseline:
-                y=extract_binary_watermark(outputs3)
+                y=extract_binary_watermark(outputs1)
             else:
                 m = torch.nn.Sigmoid()
                 y = m(outputs3)
@@ -165,7 +180,12 @@ def fit_one_epoch(model_train, model, loss_history, loss, loss2, optimizer, epoc
                 one = torch.ones_like(y)
                 y = torch.where(y >= 0.5, one, y)
                 y = torch.where(y < 0.5, zero, y)
-            wm_accuracy = torch.mean((y == watermark_in).type(torch.FloatTensor))
+                
+            if loss_baseline:
+                wm_accuracy = torch.mean((y == loss_baseline_watermark_in).type(torch.FloatTensor))
+            else:
+                wm_accuracy = torch.mean((y == watermark_in).type(torch.FloatTensor))
+            # wm_accuracy = torch.mean((y == watermark_in).type(torch.FloatTensor))
             accuracy = torch.mean((torch.argmax(F.softmax(outputs2, dim=-1), dim=-1) == labels).type(torch.FloatTensor))
 
             val_total_watermark_loss += _watermark_loss.item()
@@ -222,8 +242,13 @@ def fit_one_epoch(model_train, model, loss_history, loss, loss2, optimizer, epoc
         print('Epoch:' + str(epoch + 1) + '/' + str(Epoch))#
         print('Total Loss: %.4f' % ((total_triple_loss + total_CE_loss + total_watermark_loss) / epoch_step))
         if (epoch + 1) % save_period == 0 or epoch + 1 == Epoch:
-            torch.save(model.state_dict(), os.path.join(save_dir, 'ep%03d-loss%.3f-val_loss%.3f.pth' % ((epoch + 1),
-                                                                                                        (
-                                                                                                                    total_triple_loss + total_CE_loss + total_watermark_loss) / epoch_step,
-                                                                                                        (
-                                                                                                                    val_total_triple_loss + val_total_CE_loss + val_total_watermark_loss) / epoch_step_val)))
+            filename =  'ep%03d-loss%.3f-val_loss%.3f.pth' % ((epoch + 1), 
+                                                             (total_triple_loss + total_CE_loss + total_watermark_loss) / epoch_step, 
+                                                             (val_total_triple_loss + val_total_CE_loss + val_total_watermark_loss) / epoch_step_val)
+
+            loss_history.save_model(model, filename)
+            # torch.save(model.state_dict(), os.path.join(save_dir, 'ep%03d-loss%.3f-val_loss%.3f.pth' % ((epoch + 1),
+            #                                                                                             (
+            #                                                                                                         total_triple_loss + total_CE_loss + total_watermark_loss) / epoch_step,
+            #                                                                                             (
+            #                                                                                                         val_total_triple_loss + val_total_CE_loss + val_total_watermark_loss) / epoch_step_val)))

@@ -8,7 +8,7 @@ import torch.distributed as dist
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from nets.facenet import Facenet, Facenet_loss
+from nets.facenet import Facenet, Facenet_loss, Facenet_128
 from nets.facenet_training import (get_lr_scheduler, set_optimizer_lr,
                                    triplet_loss, weights_init, watermark_loss)
 from utils.callback import LossHistory
@@ -58,12 +58,15 @@ if __name__ == "__main__":
     parse.add_argument('--lfw_pairs_path', type=str, default='model_data/lfw_pair.txt', help='lfw pairs path')
 
     parse.add_argument('--original', type=bool, default=False, help='Whether modulate the mode')
+
     parse.add_argument('--loss_baseline', type=bool, default=False, help='Whether train loss_baseline')
+    parse.add_argument('--loss_baseline_lambda', type=float, default=1.0, help='the lambda watermark value in loss baseline')
+
     parse.add_argument('--robustness', type=str, default='none', help='',  choices=['none', 'noise', 'flip', 'combine'])
     parse.add_argument('--noise_power',type=float,default=0.1,help='Noise injection power')
-    
-    
 
+    parse.add_argument('--embed_128', default=False,  action="store_true", help='Whether use 128 demension embedding')
+    
     parse.add_argument('--local_rank', type=int, default=0, help='local rank')
     
 
@@ -239,10 +242,24 @@ if __name__ == "__main__":
     #---------------------------------#
     # init_type="kaiming"
     watermark_size=args.watermark_size
+    
+    
+    loss_baseline_watermark_in = None
     if loss_baseline :
         model = Facenet_loss(backbone=backbone, num_classes=num_classes, pretrained=pretrained,
                         dropout_keep_prob=0.5)
-        watermark_size=1024
+        # watermark_size=1024
+        watermark_size=128
+        
+        watermark = torch.empty(1, watermark_size).uniform_(0, 1)
+        loss_baseline_watermark_in = torch.bernoulli(watermark).repeat(batch_size, 1)
+        # torch.save(loss_baseline_watermark_in, os.path.join(save_dir, 'loss_baseline_watermark_in.pt'))
+
+    elif args.embed_128:
+
+        model = Facenet_128(backbone=backbone, num_classes=num_classes, pretrained=pretrained,
+                    watermark_size=watermark_size,dropout_keep_prob=0.5, robustness=args.robustness,noise_power=args.noise_power)
+ 
     else:
         model = Facenet(backbone=backbone, num_classes=num_classes, pretrained=pretrained,
                     watermark_size=watermark_size,dropout_keep_prob=0.5, robustness=args.robustness,noise_power=args.noise_power)
@@ -344,6 +361,9 @@ if __name__ == "__main__":
         Init_lr = Init_lr, Min_lr = Min_lr, optimizer_type = optimizer_type, momentum = momentum, lr_decay_type = lr_decay_type, \
         save_period = save_period, save_dir = save_dir, num_workers = num_workers, num_train = num_train, num_val = num_val,watermark_size =watermark_size
     )
+    loss_history.save_args(args, "args.yaml")
+    if loss_baseline:
+        loss_history.save_tensor(loss_baseline_watermark_in, "loss_baseline_watermark_in.pt")
 
     if True:
         if batch_size % 3 != 0:
@@ -414,7 +434,7 @@ if __name__ == "__main__":
             else:
                 fit_one_epoch(model_train, model, loss_history, loss,loss2,optimizer, epoch, epoch_step,
                               epoch_step_val, gen,gen_val, Epoch, Cuda, LFW_loader, batch_size//3, lfw_eval_flag,
-                              fp16, scaler, save_period, save_dir, local_rank,watermark_size,loss_baseline)
+                              fp16, scaler, save_period, save_dir, local_rank,watermark_size,loss_baseline, loss_baseline_watermark_in, args.loss_baseline_lambda)
 
         if local_rank == 0:
             loss_history.writer.close()
