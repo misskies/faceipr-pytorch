@@ -15,6 +15,11 @@ helper.ipynb
 faceweb_cls_train.txt
 celeba_cls_train.txt
 
+trained_weight/
+
+cls_train_faceweb.txt
+run2.sh
+
 launch.json
 run_local.sh
 
