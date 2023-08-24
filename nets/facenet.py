@@ -238,7 +238,7 @@ class Facenet(nn.Module):
             self.backbone = inception_resnet(pretrained)
             flat_shape = 1792
         elif backbone == "resnet34":
-            self.backbone =ModifiedMdResNet34(watermark_size=watermark_size)
+            self.backbone =ModifiedMdResNet34()
             flat_shape = 1024
         else:
             raise ValueError('Unsupported backbone - `{}`, Use mobilenet, inception_resnetv1.'.format(backbone))
