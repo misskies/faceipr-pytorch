@@ -6,7 +6,7 @@ import torch.backends.cudnn as cudnn
 import os
 from nets.facenet import Facenet
 from utils.dataloader import LFWDataset
-from utils.utils_metrics import test, LSB_test
+from utils.utils_metrics import test, LSB_test, post_test
 
 if __name__ == "__main__":
     parse = argparse.ArgumentParser()
@@ -27,7 +27,9 @@ if __name__ == "__main__":
     parse.add_argument('--robustness', type=str, default='none', help='', choices=['none', 'noise', 'flip', 'combine'])
 
     parse.add_argument('--png_save_path', type=str, default='model_data/roc_test.png', help='Roc save path')
-    parse.add_argument('--LSB', type=bool, default=False, help='Eval LSB Baseline')
+
+    # parse.add_argument('--LSB', type=bool, default=False, help='Eval LSB Baseline')
+    parse.add_argument("--post", type=str, default="None", choices=["None", "LSB", "FTT", "Noise"], help='Eval LSB Baseline')
 
     args = parse.parse_args()
     #--------------------------------------#
@@ -48,7 +50,8 @@ if __name__ == "__main__":
     #--------------------------------------#
     #   训练好的权值文件
     #--------------------------------------#
-    LSB = args.LSB
+    # LSB = args.LSB
+    post = args.post
     #--------------------------------------#
     #   评估LSB Baseline
     #--------------------------------------#
@@ -111,8 +114,9 @@ if __name__ == "__main__":
             model = torch.nn.DataParallel(model)
             cudnn.benchmark = True
             model = model.cuda()
-        if LSB :
+        if post != "None" :
             watermark_size=1024
-            LSB_test(test_loader, model, png_save_path, log_interval, batch_size, cuda, watermark_size)
+            # LSB_test(test_loader, model, png_save_path, log_interval, batch_size, cuda, watermark_size)
+            post_test(test_loader, model, png_save_path, log_interval, batch_size, cuda, watermark_size, post_method=post)
         else:
             test(test_loader, model, png_save_path, log_interval, batch_size, cuda, watermark_size, original)

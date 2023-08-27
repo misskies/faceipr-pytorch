@@ -10,7 +10,7 @@ from torch.nn import functional as F
 
 from nets.inception_resnetv1 import InceptionResnetV1
 from nets.mobilenet import MobileNetV1, watermark_MobileNetV1
-from nets.baseline import embed_watermark ,extract_watermark
+from nets.baseline import post_embed_watermark ,post_extract_watermark
 import nets.model as md
 from nets.resnet import ModifiedMdResNet34
 
@@ -290,14 +290,19 @@ class Facenet(nn.Module):
             x = self.last_bn(x)
             x = F.normalize(x, p=2, dim=1)
             return x,watermark_fin
-        if mode == 'LSB':
+        if mode in ['LSB', 'FTT', 'Noise'] :
             watermark_out=None
             x = self.backbone(x, watermark_out)
             x = self.avg(x)
             x = x.view(x.size(0), -1)
-            x = embed_watermark(x,watermark_in) #watermakred_embedding
+            x = post_embed_watermark(x,watermark_in, mode) #watermakred_embedding
             x=Noise_injection(x,robustness=self.robustness,noise_power=self.noise_power)
-            watermark_fin= extract_watermark(x,1024)
+            if mode == "FTT":
+                watermark_size = 32
+            else:
+                watermark_size = 1024
+                
+            watermark_fin= post_extract_watermark(x, watermark_size, mode, mode=mode)
             x = self.Dropout(x)
             x = self.Bottleneck(x)
             x = self.last_bn(x)
