@@ -29,7 +29,7 @@ if __name__ == "__main__":
     parse.add_argument('--png_save_path', type=str, default='model_data/roc_test.png', help='Roc save path')
 
     # parse.add_argument('--LSB', type=bool, default=False, help='Eval LSB Baseline')
-    parse.add_argument("--post", type=str, default="None", choices=["None", "LSB", "FTT", "Noise"], help='Eval LSB Baseline')
+    parse.add_argument("--post", type=str, default="None", choices=["None", "LSB", "FFT", "Noise"], help='Eval LSB Baseline')
 
     args = parse.parse_args()
     #--------------------------------------#
@@ -115,8 +115,8 @@ if __name__ == "__main__":
             cudnn.benchmark = True
             model = model.cuda()
         if post != "None" :
-            watermark_size=1024
+            # watermark_size=1024
             # LSB_test(test_loader, model, png_save_path, log_interval, batch_size, cuda, watermark_size)
-            post_test(test_loader, model, png_save_path, log_interval, batch_size, cuda, watermark_size, post_method=post)
+            post_test(test_loader, model, png_save_path, log_interval, batch_size, cuda, args.watermark_size, post_method=post)
         else:
             test(test_loader, model, png_save_path, log_interval, batch_size, cuda, watermark_size, original)

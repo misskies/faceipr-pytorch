@@ -10,7 +10,7 @@ def post_embed_watermark(embedding, watermark, mode, start_pos=900, perturbation
     Args:
     - embedding (torch.Tensor): The tensor of face embeddings, shape [batch_size, embedding_size].
     - watermark (torch.Tensor): The tensor of binary watermarks, shape [batch_size, watermark_size].
-    - mode (str): The post-processing strategy to use. One of ['LSB', 'FTT', 'Noise'].
+    - mode (str): The post-processing strategy to use. One of ['LSB', 'FFT', 'Noise'].
 
     Returns:
     - torch.Tensor: Watermarked embeddings.
@@ -29,7 +29,7 @@ def post_embed_watermark(embedding, watermark, mode, start_pos=900, perturbation
 
         return watermarked_embedding
     
-    elif mode == "FTT":
+    elif mode == "FFT":
         
         watermark_size = watermark.shape[1]
         freq_repr = torch.fft.fft(embedding)
@@ -47,7 +47,7 @@ def post_embed_watermark(embedding, watermark, mode, start_pos=900, perturbation
 
 
     else:
-        raise ValueError("Invalid post-processing mode: {mode}, which must be one of ['LSB', 'FTT', 'Noise'].")
+        raise ValueError("Invalid post-processing mode: {mode}, which must be one of ['LSB', 'FFT', 'Noise'].")
 
 
         
@@ -60,7 +60,7 @@ def post_extract_watermark(watermarked_embedding, watermark_size, mode, start=90
     Args:
     - embedding (torch.Tensor): The tensor of watermarked embeddings, shape [batch_size, embedding_size].
     - watermark_size (int): The size of the watermark to extract.
-    - mode (str): The post-processing strategy to use. One of ['LSB', 'FTT', 'Noise'].
+    - mode (str): The post-processing strategy to use. One of ['LSB', 'FFT', 'Noise'].
 
 
     Returns:
@@ -71,7 +71,7 @@ def post_extract_watermark(watermarked_embedding, watermark_size, mode, start=90
         watermarked_embedding = torch.round(watermarked_embedding)
         extracted_watermark = watermarked_embedding % 2
         return extracted_watermark
-    elif mode == "FTT":
+    elif mode == "FFT":
 
         freq_repr = torch.fft.fft(watermarked_embedding)
         
@@ -86,7 +86,7 @@ def post_extract_watermark(watermarked_embedding, watermark_size, mode, start=90
         return (watermarked_embedding > threshold).to(torch.int64)
         
     else:
-        raise ValueError("Invalid post-processing mode: {mode}, which must be one of ['LSB', 'FTT', 'Noise'].")
+        raise ValueError("Invalid post-processing mode: {mode}, which must be one of ['LSB', 'FFT', 'Noise'].")
 
 
 

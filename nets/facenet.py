@@ -290,19 +290,19 @@ class Facenet(nn.Module):
             x = self.last_bn(x)
             x = F.normalize(x, p=2, dim=1)
             return x,watermark_fin
-        if mode in ['LSB', 'FTT', 'Noise'] :
+        if mode in ['LSB', 'FFT', 'Noise'] :
             watermark_out=None
+            watermark_size = watermark_in.shape[1]
             x = self.backbone(x, watermark_out)
             x = self.avg(x)
             x = x.view(x.size(0), -1)
             x = post_embed_watermark(x,watermark_in, mode) #watermakred_embedding
             x=Noise_injection(x,robustness=self.robustness,noise_power=self.noise_power)
-            if mode == "FTT":
-                watermark_size = 32
-            else:
-                watermark_size = 1024
-                
-            watermark_fin= post_extract_watermark(x, watermark_size, mode, mode=mode)
+            watermark_fin= post_extract_watermark(x, watermark_size, mode=mode)
+
+            if torch.is_complex(x):
+                x = x.to(torch.float32)
+            
             x = self.Dropout(x)
             x = self.Bottleneck(x)
             x = self.last_bn(x)
