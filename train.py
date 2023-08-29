@@ -48,6 +48,7 @@ if __name__ == "__main__":
     parse.add_argument('--backbone', type=str, default='mobilenet', help='backbone')
     parse.add_argument('--pretrained', type=bool, default=False, help='pretrained')
     parse.add_argument('--model_path', type=str, default='/home/lsf/facenet-pytorch/logs/ep002-loss5.022-val_loss4.791.pth', help='load model from checkpoint')
+    parse.add_argument('--decoder_arch', type=str, default='fc', choices=['fc', 'conv', 'attn', 'conv_attn'],help='The architecuture of decoder')
 
     parse.add_argument('--watermark_size', type=int, default=32, help='watermark size')
     parse.add_argument('--annotation_path', type=str, default='cls_train.txt', help='annotation path')
@@ -262,7 +263,7 @@ if __name__ == "__main__":
  
     else:
         model = Facenet(backbone=backbone, num_classes=num_classes, pretrained=pretrained,
-                    watermark_size=watermark_size,dropout_keep_prob=0.5, robustness=args.robustness,noise_power=args.noise_power)
+                    watermark_size=watermark_size,dropout_keep_prob=0.5, robustness=args.robustness,noise_power=args.noise_power, decoder_arch=args.decoder_arch)
     #weights_init(model,init_type)
     if model_path != '':
         #------------------------------------------------------#
