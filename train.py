@@ -63,7 +63,7 @@ if __name__ == "__main__":
     parse.add_argument('--loss_baseline', type=bool, default=False, help='Whether train loss_baseline')
     parse.add_argument('--loss_baseline_lambda', type=float, default=1.0, help='the lambda watermark value in loss baseline')
 
-    parse.add_argument('--robustness', type=str, default='none', help='',  choices=['none', 'noise', 'flip', 'combine'])
+    parse.add_argument('--robustness', type=str, default='none', help='',  choices=['none', 'noise', 'flip','round','random_del','combine'])
     parse.add_argument('--noise_power',type=float,default=0.1,help='Noise injection power')
 
     parse.add_argument('--embed_128', default=False,  action="store_true", help='Whether use 128 demension embedding')
@@ -280,7 +280,7 @@ if __name__ == "__main__":
         load_key, no_load_key, temp_dict = [], [], {}
         for k, v in pretrained_dict.items():
             if k in model_dict.keys() and np.shape(model_dict[k]) == np.shape(v):
-                if "Encoder" in k or "Decoder" in k :
+                if ("Encoder" in k or "Decoder" in k) and original :
                     no_load_key.append(k)
                 else:
                     temp_dict[k] = v
