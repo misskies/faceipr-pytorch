@@ -351,7 +351,7 @@ class Facenet(nn.Module):
         if mode == "train":
             self.classifier = nn.Linear(embedding_size, num_classes)
 
-    def forward(self, x,watermark_in,mode = "predict"):
+    def forward(self, x,watermark_in,mode = "predict", robustness="none", noise_power=0):
         if mode == 'predict':
             watermark_out = self.watermark_Encoder(watermark_in)
             x = self.backbone(x, watermark_out)
@@ -395,7 +395,7 @@ class Facenet(nn.Module):
             x = self.avg(x)
             x = x.view(x.size(0), -1)
             x = post_embed_watermark(x,watermark_in, mode) #watermakred_embedding
-            x=Noise_injection(x,robustness=self.robustness,noise_power=self.noise_power)
+            x=Noise_injection(x,robustness=robustness,noise_power=noise_power)
             watermark_fin= post_extract_watermark(x, watermark_size, mode=mode)
 
             if torch.is_complex(x):

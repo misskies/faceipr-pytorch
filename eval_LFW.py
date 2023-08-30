@@ -117,6 +117,6 @@ if __name__ == "__main__":
         if post != "None" :
             # watermark_size=1024
             # LSB_test(test_loader, model, png_save_path, log_interval, batch_size, cuda, watermark_size)
-            post_test(test_loader, model, png_save_path, log_interval, batch_size, cuda, args.watermark_size, post_method=post)
+            post_test(test_loader, model, png_save_path, log_interval, batch_size, cuda, args.watermark_size, post_method=post, robustness=args.robustness, noise_power=noise_power)
         else:
             test(test_loader, model, png_save_path, log_interval, batch_size, cuda, watermark_size, original)

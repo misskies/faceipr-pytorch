@@ -256,7 +256,7 @@ def LSB_test(test_loader, model, png_save_path, log_interval, batch_size, cuda,w
 
 
 
-def post_test(test_loader, model, png_save_path, log_interval, batch_size, cuda,watermark_size, post_method):
+def post_test(test_loader, model, png_save_path, log_interval, batch_size, cuda,watermark_size, post_method, robustness, noise_power):
     labels, distances,sameface_distances= [], [],[]
     wm_accuracy=0
     acc_wm=0
@@ -277,9 +277,9 @@ def post_test(test_loader, model, png_save_path, log_interval, batch_size, cuda,
             #   传入模型预测，获得预测结果
             #   获得预测结果的距离
             #--------------------------------------#
-            out_a, out_wm1 = model(data_a, data_wm, post_method)
-            out_a1,out_tmp = model(data_a,data_wm1, post_method)
-            out_p, out_wm2 = model(data_p, data_wm, post_method)
+            out_a, out_wm1 = model(data_a, data_wm, post_method, robustness, noise_power=noise_power)
+            out_a1,out_tmp = model(data_a,data_wm1, post_method, robustness, noise_power=noise_power)
+            out_p, out_wm2 = model(data_p, data_wm, post_method, robustness="none")
             dists = torch.sqrt(torch.sum((out_a - out_p) ** 2, 1))
             sameface_dists=torch.sqrt(torch.sum((out_a1 - out_p) ** 2, 1))
             acc_wm += torch.mean((out_wm1 == data_wm).type(torch.FloatTensor))
@@ -321,10 +321,10 @@ def post_test(test_loader, model, png_save_path, log_interval, batch_size, cuda,
     print('Best_thresholds: %2.5f' % best_thresholds)
     print('Validation rate: %2.5f+-%2.5f @ FAR=%2.5f' % (val, val_std, far))
 
-    with open("robustness/LSB_flip_LFWacc.txt", 'a') as f:
+    with open(f"eval_robustness/{post_method}_{robustness}_{noise_power}_LFWacc.txt", 'a') as f:
          f.write(str(np.mean(accuracy)))
          f.write("\n")
-    with open("robustness/LSB_flip_wmacc.txt", 'a') as f:
+    with open(f"eval_robustness/{post_method}_{robustness}_{noise_power}_wmacc.txt", 'a') as f:
          f.write(str(acc_wm.item()))
          f.write("\n")
 def plot_roc(fpr, tpr, figure_name = "roc.png"):
