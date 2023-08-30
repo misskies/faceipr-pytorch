@@ -30,6 +30,11 @@
 # 
 
 
-CUDA_VISIBLE_DEVICES=3 python train.py --model_path="/home/zx/public/collaboration/facenet-pytorch/facenet-pytorch/trained_weight/faceweb_unmd_mobilenet/ep042-loss0.410-val_loss2.268.pth" --annotation_path="cls_train.txt" --lfw_dir_path="/home/zx/public/dataset/lfw" --lfw_pairs_path="model_data/lfw_pair.txt" --batch_size=30 --loss_baseline=True --loss_baseline_lambda=50.0 --epoch=10
+#CUDA_VISIBLE_DEVICES=3 python train.py --model_path="/home/zx/public/collaboration/facenet-pytorch/facenet-pytorch/trained_weight/faceweb_unmd_mobilenet/ep042-loss0.410-val_loss2.268.pth" --annotation_path="cls_train.txt" --lfw_dir_path="/home/zx/public/dataset/lfw" --lfw_pairs_path="model_data/lfw_pair.txt" --batch_size=30 --loss_baseline=True --loss_baseline_lambda=50.0 --epoch=10
 
-CUDA_VISIBLE_DEVICES=3 python train.py --model_path="/home/zx/public/collaboration/facenet-pytorch/facenet-pytorch/trained_weight/faceweb_unmd_mobilenet/ep042-loss0.410-val_loss2.268.pth" --annotation_path="cls_train_celeba.txt" --lfw_dir_path="/home/zx/public/dataset/lfw" --lfw_pairs_path="model_data/lfw_pair.txt" --batch_size=30 --loss_baseline=True --loss_baseline_lambda=50.0 --epoch=10
+#CUDA_VISIBLE_DEVICES=3 python train.py --model_path="/home/zx/public/collaboration/facenet-pytorch/facenet-pytorch/trained_weight/faceweb_unmd_mobilenet/ep042-loss0.410-val_loss2.268.pth" --annotation_path="cls_train_celeba.txt" --lfw_dir_path="/home/zx/public/dataset/lfw" --lfw_pairs_path="model_data/lfw_pair.txt" --batch_size=30 --loss_baseline=True --loss_baseline_lambda=50.0 --epoch=10
+
+#CUDA_VISIBLE_DEVICES=3 python train.py --model_path="/home/lsf/facenet-pytorch/trained_weight/faceweb_unmd_mobilenet/ep042-loss0.410-val_loss2.268.pth" --watermark_size=32 --annotation_path="cls_train.txt" --lfw_pairs_path="model_data/lfw_pair.txt" --batch_size=72  --epoch=50 --robustness="noise" --noise_power=0.15
+
+#Confrontation training
+CUDA_VISIBLE_DEVICES=3 python train.py --model_path="/home/lsf/facenet-pytorch/trained_weight/faceweb_md_mobilenet_Decoder-5FC/32/ep013-loss0.732-val_loss2.137.pth" --watermark_size=32 --annotation_path="cls_train.txt" --lfw_pairs_path="model_data/lfw_pair.txt" --batch_size=72  --epoch=50 --robustness="random_del" --noise_power=0.05

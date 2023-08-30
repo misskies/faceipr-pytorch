@@ -4,6 +4,9 @@ from scipy import interpolate
 from sklearn.model_selection import KFold
 from tqdm import tqdm
 
+from nets.baseline import extract_binary_watermark
+
+
 def evaluate(distances, labels, nrof_folds=10):
     # Calculate evaluation metrics
     thresholds = np.arange(0, 4, 0.01)
@@ -123,7 +126,7 @@ def test(test_loader, model, png_save_path, log_interval, batch_size, cuda,water
             else:
                 out_a, out_wm1 = model(data_a, data_wm)
                 out_a1,out_tmp = model(data_a,data_wm1)
-                out_p, out_wm2 = model(data_p, data_wm)
+                out_p, out_wm2 = model(data_p, data_wm,"no-noise_predict")
                 dists = torch.sqrt(torch.sum((out_a - out_p) ** 2, 1))
                 sameface_dists=torch.sqrt(torch.sum((out_a1 - out_p) ** 2, 1))
                 m = torch.nn.Sigmoid()
@@ -136,8 +139,8 @@ def test(test_loader, model, png_save_path, log_interval, batch_size, cuda,water
                 y2 = torch.where(y2 >= 0.5, one, y2)
                 y2 = torch.where(y2 < 0.5, zero, y2)
                 acc_wm += torch.mean((y1 == data_wm).type(torch.FloatTensor))
-                acc_wm += torch.mean((y2 == data_wm).type(torch.FloatTensor))
-                num += 2
+                #acc_wm += torch.mean((y2 == data_wm).type(torch.FloatTensor))
+                num += 1
         #--------------------------------------#
         #   将结果添加进列表中
         #--------------------------------------#
@@ -175,10 +178,77 @@ def test(test_loader, model, png_save_path, log_interval, batch_size, cuda,water
     print('Best_thresholds: %2.5f' % best_thresholds)
     print('Validation rate: %2.5f+-%2.5f @ FAR=%2.5f' % (val, val_std, far))
 
-    # with open("robustness/wm32_combine_LFWacc.txt", 'a') as f:
+    with open("eval_robustness/Confrontation_train_noise-0.2_LFWacc.txt", 'a') as f:
+        f.write(str(np.mean(accuracy)))
+        f.write("\n")
+    # with open("eval_robustness/Confrontation_random_del-0.1_wmacc.txt", 'a') as f:
+    #     f.write(str(acc_wm.item()))
+    #     f.write("\n")
+
+def loss_baseline_test(test_loader, model, png_save_path, log_interval, batch_size, cuda,watermark_size):
+    labels, distances,sameface_distances= [], [],[]
+    wm_accuracy=0
+    acc_wm=0
+    num=0
+    pbar = tqdm(enumerate(test_loader))
+    path = "/home/lsf/public/collaboration/facenet-pytorch/facenet-pytorch/trained_weight/faceweb_lossEmbed_mobilenet/loss_baseline_watermark_in.pt"
+    dict = torch.load(path)
+    dict = list(dict)
+    for batch_idx, (data_a, data_p, label) in pbar:
+        with torch.no_grad():
+            watermark_in = dict[0].repeat(data_a.shape[0], 1)
+            #--------------------------------------#
+            #   加载数据，设置成cuda
+            #--------------------------------------#
+            data_a, data_p      = data_a.type(torch.FloatTensor), data_p.type(torch.FloatTensor)
+            if cuda:
+                data_a, data_p,data_wm= data_a.cuda(), data_p.cuda(),watermark_in.cuda()
+            #--------------------------------------#
+            #   传入模型预测，获得预测结果
+            #   获得预测结果的距离
+            #--------------------------------------#
+            out_a, out_wm1 = model(data_a, data_wm)
+            out_p, out_wm2 = model(data_p, data_wm,"no-noise_predict")
+            dists = torch.sqrt(torch.sum((out_a - out_p) ** 2, 1))
+            y1 = extract_binary_watermark(out_a)
+            y2 = extract_binary_watermark(out_p)
+            acc_wm += torch.mean((y1 == data_wm).type(torch.FloatTensor))
+            #acc_wm += torch.mean((y2 == data_wm).type(torch.FloatTensor))
+            num += 1
+
+        #--------------------------------------#
+        #   将结果添加进列表中
+        #--------------------------------------#
+        distances.append(dists.data.cpu().numpy())
+        labels.append(label.data.cpu().numpy())
+
+        #--------------------------------------#
+        #   打印
+        #--------------------------------------#
+        if batch_idx % log_interval == 0:
+            pbar.set_description('Test Epoch: [{}/{} ({:.0f}%)]'.format(
+                batch_idx * batch_size, len(test_loader.dataset),
+                100. * batch_idx / len(test_loader)))
+
+    #--------------------------------------#
+    #   转换成numpy
+    #--------------------------------------#
+    labels      = np.array([sublabel for label in labels for sublabel in label])
+    distances   = np.array([subdist for dist in distances for subdist in dist])
+    sameface_distances= np.array([subdist for dist in sameface_distances for subdist in dist])
+    acc_wm/=num
+    tpr, fpr, accuracy, val, val_std, far, best_thresholds = evaluate(distances,labels)
+    print()
+    print('WatermarkAccuracy: %2.5f' %(acc_wm))
+    print('Accuracy: %2.5f+-%2.5f' % (np.mean(accuracy), np.std(accuracy)))
+    print('Best_thresholds: %2.5f' % best_thresholds)
+    print('Validation rate: %2.5f+-%2.5f @ FAR=%2.5f' % (val, val_std, far))
+    plot_roc(fpr, tpr, figure_name = png_save_path)
+    #
+    # with open("eval_robustness/loss-baseline_random-del_LFWacc.txt", 'a') as f:
     #     f.write(str(np.mean(accuracy)))
     #     f.write("\n")
-    # with open("robustness/wm32_combine_wmacc.txt", 'a') as f:
+    # with open("eval_robustness/loss-baseline_random-del_wmacc.txt", 'a') as f:
     #     f.write(str(acc_wm.item()))
     #     f.write("\n")
 
@@ -205,12 +275,12 @@ def LSB_test(test_loader, model, png_save_path, log_interval, batch_size, cuda,w
             #--------------------------------------#
             out_a, out_wm1 = model(data_a, data_wm,"LSB")
             out_a1,out_tmp = model(data_a,data_wm1,"LSB")
-            out_p, out_wm2 = model(data_p, data_wm,"LSB")
+            out_p, out_wm2 = model(data_p, data_wm,"no-noise_LSB")
             dists = torch.sqrt(torch.sum((out_a - out_p) ** 2, 1))
             sameface_dists=torch.sqrt(torch.sum((out_a1 - out_p) ** 2, 1))
             acc_wm += torch.mean((out_wm1 == data_wm).type(torch.FloatTensor))
-            acc_wm += torch.mean((out_wm2 == data_wm).type(torch.FloatTensor))
-            num += 2
+            #acc_wm += torch.mean((out_wm2 == data_wm).type(torch.FloatTensor))
+            num += 1
         #--------------------------------------#
         #   将结果添加进列表中
         #--------------------------------------#
@@ -247,12 +317,9 @@ def LSB_test(test_loader, model, png_save_path, log_interval, batch_size, cuda,w
     print('Best_thresholds: %2.5f' % best_thresholds)
     print('Validation rate: %2.5f+-%2.5f @ FAR=%2.5f' % (val, val_std, far))
 
-    with open("robustness/LSB_flip_LFWacc.txt", 'a') as f:
-         f.write(str(np.mean(accuracy)))
-         f.write("\n")
-    with open("robustness/LSB_flip_wmacc.txt", 'a') as f:
-         f.write(str(acc_wm.item()))
-         f.write("\n")
+    # with open("eval_robustness/LSB_round_wmacc.txt", 'a') as f:
+    #      f.write(str(acc_wm.item()))
+    #      f.write("\n")
 
 def plot_roc(fpr, tpr, figure_name = "roc.png"):
     import matplotlib.pyplot as plt
