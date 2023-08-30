@@ -365,6 +365,18 @@ class Facenet(nn.Module):
             x = F.normalize(x, p=2, dim=1)
             return x,watermark_fin
 
+        if mode == 'no-noise_predict':
+            watermark_out = self.watermark_Encoder(watermark_in)
+            x = self.backbone(x, watermark_out)
+            x = self.avg(x)
+            x = x.view(x.size(0), -1)
+            watermark_fin=self.watermark_Decoder(x)
+            x = self.Dropout(x)
+            x = self.Bottleneck(x)
+            x = self.last_bn(x)
+            x = F.normalize(x, p=2, dim=1)
+            return x,watermark_fin
+
         if mode == 'origin':
             watermark_out = None
             x = self.backbone(x, watermark_out)
@@ -407,13 +419,27 @@ class Facenet(nn.Module):
             x = F.normalize(x, p=2, dim=1)
             return x,watermark_fin
 
+        if mode == 'no-noise_LSB':
+            watermark_out=None
+            x = self.backbone(x, watermark_out)
+            x = self.avg(x)
+            x = x.view(x.size(0), -1)
+            x = embed_watermark(x,watermark_in) #watermakred_embedding
+            watermark_fin= extract_watermark(x,1024)
+            x = self.Dropout(x)
+            x = self.Bottleneck(x)
+            x = self.last_bn(x)
+            x = F.normalize(x, p=2, dim=1)
+            return x,watermark_fin
+
         watermark_out=self.watermark_Encoder(watermark_in)
         x = self.backbone(x,watermark_out)
         #x(5,5,1024)
         x = self.avg(x)
         #x(1,1,1024)
         x = x.view(x.size(0), -1)#(batch,1024)
-        watermark_fin = self.watermark_Decoder(x)
+        noise_embedding = Noise_injection(x, robustness=self.robustness, noise_power=self.noise_power)
+        watermark_fin = self.watermark_Decoder(noise_embedding)
         x = self.Dropout(x)
         x = self.Bottleneck(x)
         before_normalize = self.last_bn(x)#feature
@@ -472,7 +498,6 @@ class Facenet_128(nn.Module):
             x = self.Bottleneck(x)
             x = self.last_bn(x)
             x = F.normalize(x, p=2, dim=1)
-
             x=Noise_injection(x,robustness=self.robustness,noise_power=self.noise_power)
             watermark_fin=self.watermark_Decoder(x)
             return x,watermark_fin
@@ -556,7 +581,7 @@ class Facenet_128(nn.Module):
 
 
 class Facenet_loss(nn.Module):
-    def __init__(self, backbone="mobilenet", dropout_keep_prob=0.5, embedding_size=128, num_classes=None, mode="train", pretrained=False):
+    def __init__(self, backbone="mobilenet", dropout_keep_prob=0.5, embedding_size=128, num_classes=None, mode="train", pretrained=False, robustness="none",noise_power=0.1):
         super(Facenet_loss, self).__init__()
         if backbone == "mobilenet":
             # self.backbone = mobilenet(pretrained)
@@ -574,8 +599,21 @@ class Facenet_loss(nn.Module):
         if mode == "train":
             self.classifier = nn.Linear(embedding_size, num_classes)
         self.Tanh=nn.Tanh()
+        self.robustness=robustness
+        self.noise_power = noise_power
     def forward(self, x, watermark_in=None, mode = "predict"):
         if mode == 'predict':
+            watermark_out = None
+            x = self.backbone(x, watermark_out)
+            x = self.avg(x)
+            x = x.view(x.size(0), -1)
+            x = self.Dropout(x)
+            x = self.Bottleneck(x)
+            x = self.last_bn(x)
+            x = F.normalize(x, p=2, dim=1)
+            x = Noise_injection(x,robustness=self.robustness,noise_power=self.noise_power)
+            return x, x
+        if mode == 'no-noise_predict':
             watermark_out = None
             x = self.backbone(x, watermark_out)
             x = self.avg(x)
@@ -594,6 +632,7 @@ class Facenet_loss(nn.Module):
         x = self.Bottleneck(x)
         before_normalize = self.last_bn(x)
         x = F.normalize(before_normalize, p=2, dim=1)
+        x = Noise_injection(x,robustness=self.robustness, noise_power=self.noise_power)
         cls = self.classifier(before_normalize)
         return x, cls
 
