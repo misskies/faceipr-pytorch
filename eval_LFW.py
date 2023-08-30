@@ -30,6 +30,8 @@ if __name__ == "__main__":
 
     # parse.add_argument('--LSB', type=bool, default=False, help='Eval LSB Baseline')
     parse.add_argument("--post", type=str, default="None", choices=["None", "LSB", "FFT", "Noise"], help='Eval LSB Baseline')
+    parse.add_argument("--test_rank", type=int, default="21", help='eval rank')
+    parse.add_argument("--noise_power", type=float, default="0", help='noise power')
 
     args = parse.parse_args()
     #--------------------------------------#
@@ -79,8 +81,8 @@ if __name__ == "__main__":
     test_loader = torch.utils.data.DataLoader(
         LFWDataset(dir=lfw_dir_path, pairs_path=lfw_pairs_path, image_size=input_shape), batch_size=batch_size, shuffle=False)
 
-    test_rank=21
-    noise_power=0
+    test_rank=args.test_rank
+    noise_power=args.noise_power
     for i in range(test_rank) :
         if i == 0:
             robustness="none"
