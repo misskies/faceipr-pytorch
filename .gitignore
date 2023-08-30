@@ -11,6 +11,17 @@ cls_train_celeba.txt
 cls_train.txt
 help.py
 help.ipynb
+helper.ipynb
+faceweb_cls_train.txt
+celeba_cls_train.txt
+
+trained_weight/
+
+cls_train_faceweb.txt
+run2.sh
+
+launch.json
+run_local.sh
 
 
 # Byte-compiled / optimized / DLL files

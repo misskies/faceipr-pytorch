@@ -10,8 +10,9 @@ from torch.nn import functional as F
 
 from nets.inception_resnetv1 import InceptionResnetV1
 from nets.mobilenet import MobileNetV1, watermark_MobileNetV1
-from nets.baseline import embed_watermark ,extract_watermark
+from nets.baseline import post_embed_watermark ,post_extract_watermark
 import nets.model as md
+from nets.resnet import ModifiedMdResNet34
 
 def linear(inp,oup):
     return nn.Sequential(
@@ -115,10 +116,10 @@ def Noise_injection(feature_in,robustness="none",noise_power=0.1):
 
 
 class D_watermark(nn.Module):
-    def __init__(self,watermark_size=32,lr_mlp=0.01, robustness="none"):
+    def __init__(self,embedding_size=1024,watermark_size=32,lr_mlp=0.01, robustness="none"):
         super(D_watermark,self).__init__()
         self.stage=nn.Sequential(
-            linear(1024,512),
+            linear(embedding_size,512),
             linear(512,256),
             linear(256,128),
             linear(128,64),
@@ -163,6 +164,93 @@ class D_watermark_128(nn.Module):
         watermark_out=self.stage(feature_in)
         #watermark_out=self.style(feature_in)
         return watermark_out
+    
+
+
+class D_watermark_conv(nn.Module):
+    def __init__(self, watermark_size=32):
+        super().__init__()
+        self.conv_layers = nn.Sequential(
+            nn.Conv1d(1, 32, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.MaxPool1d(kernel_size=2, stride=2),
+            nn.Conv1d(32, 64, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.MaxPool1d(kernel_size=2, stride=2)
+        )
+        self.fc_layers = nn.Sequential(
+            nn.Linear(64 * 256, 128),
+            nn.ReLU(),
+            nn.Linear(128, watermark_size)
+        )
+    
+    def forward(self, x):
+        x = x.unsqueeze(1)  # Add an extra dimension for the channels
+        x = self.conv_layers(x)
+        x = x.view(x.size(0), -1)  # Flatten the tensor
+        x = self.fc_layers(x)
+        return x
+
+
+class D_watermark_attn(nn.Module):
+    def __init__(self, embedding_size=1024, watermark_size=32):
+        super().__init__()
+        self.query = nn.Linear(embedding_size, watermark_size)
+        self.key = nn.Linear(embedding_size, watermark_size)
+        self.value = nn.Linear(embedding_size, watermark_size)
+
+    def forward(self, x):
+        Q = self.query(x)
+        K = self.key(x)
+        V = self.value(x)
+
+        attention_weights = F.softmax(Q @ K.transpose(-2, -1) / (K.shape[-1] ** 0.5), dim=-1)
+        return attention_weights @ V
+
+
+
+
+class D_watermark_convattn(nn.Module):
+    def __init__(self, watermark_size=32):
+        super().__init__()
+        self.conv_layers = nn.Sequential(
+            nn.Conv1d(1, 32, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.MaxPool1d(kernel_size=2, stride=2),
+            nn.Conv1d(32, 64, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.MaxPool1d(kernel_size=2, stride=2)
+        )
+        self.attention = SelfAttention(64 * 256, 128)
+        self.fc = nn.Linear(128, watermark_size)
+
+    def forward(self, x):
+        x = x.unsqueeze(1) # Add an extra dimension for the channels
+        x = self.conv_layers(x)
+        x = x.view(x.size(0), -1) # Flatten the tensor
+        x = self.attention(x)
+        x = self.fc(x)
+        return x
+
+class SelfAttention(nn.Module):
+    def __init__(self, input_dim, output_dim):
+        super().__init__()
+        self.query = nn.Linear(input_dim, output_dim)
+        self.key = nn.Linear(input_dim, output_dim)
+        self.value = nn.Linear(input_dim, output_dim)
+
+    def forward(self, x):
+        Q = self.query(x)
+        Q = Q.unsqueeze(0)
+        K = self.key(x)
+        K = K.unsqueeze(0)
+        V = self.value(x)
+        V = V.unsqueeze(0)
+
+        attention_weights = F.softmax(Q @ K.transpose(-2, -1) / (K.shape[-1] ** 0.5), dim=-1)
+        return (attention_weights @ V).squeeze(0)
+
+
 
 
 class Discriminator(nn.Module):
@@ -227,7 +315,7 @@ class Discriminator(nn.Module):
 
 
 class Facenet(nn.Module):
-    def __init__(self,backbone="mobilenet", dropout_keep_prob=0.5, embedding_size=128, num_classes=None, mode="train", pretrained=False,watermark_size=32, robustness="none",noise_power=0.1):
+    def __init__(self,backbone="mobilenet", dropout_keep_prob=0.5, embedding_size=128, num_classes=None, mode="train", pretrained=False,watermark_size=32, robustness="none",noise_power=0.1, decoder_arch="fc"):
         super(Facenet, self).__init__()
 
         if backbone == "mobilenet":
@@ -236,12 +324,26 @@ class Facenet(nn.Module):
         elif backbone == "inception_resnetv1":
             self.backbone = inception_resnet(pretrained)
             flat_shape = 1792
+        elif backbone == "resnet34":
+            self.backbone =ModifiedMdResNet34()
+            flat_shape = 1024
         else:
             raise ValueError('Unsupported backbone - `{}`, Use mobilenet, inception_resnetv1.'.format(backbone))
         self.robustness=robustness
         self.noise_power=noise_power
         self.watermark_Encoder=E_watermark(watermark_size=watermark_size)
-        self.watermark_Decoder=D_watermark(watermark_size=watermark_size, robustness=robustness)
+        
+        if decoder_arch == "fc": 
+            self.watermark_Decoder=D_watermark(embedding_size=flat_shape, watermark_size=watermark_size, robustness=robustness)
+        elif decoder_arch == "conv":
+            self.watermark_Decoder = D_watermark_conv(watermark_size=watermark_size)
+        elif decoder_arch == "attn":
+            self.watermark_Decoder = D_watermark_attn(embedding_size=flat_shape, watermark_size=watermark_size)
+        elif decoder_arch == "conv_attn":
+            self.watermark_Decoder = D_watermark_convattn(watermark_size=watermark_size)
+        else:
+            raise ValueError(f"Unsupported decoder architecture - `{decoder_arch}`, Use fc, conv, attn, conv_attn.")
+        
         self.avg        = nn.AdaptiveAvgPool2d((1,1))
         self.Dropout    = nn.Dropout(1 - dropout_keep_prob)
         self.Bottleneck = nn.Linear(flat_shape, embedding_size,bias=False)
@@ -298,14 +400,19 @@ class Facenet(nn.Module):
             x = self.last_bn(x)
             x = F.normalize(x, p=2, dim=1)
             return x,watermark_fin
-        if mode == 'LSB':
+        if mode in ['LSB', 'FFT', 'Noise'] :
             watermark_out=None
+            watermark_size = watermark_in.shape[1]
             x = self.backbone(x, watermark_out)
             x = self.avg(x)
             x = x.view(x.size(0), -1)
-            x = embed_watermark(x,watermark_in) #watermakred_embedding
+            x = post_embed_watermark(x,watermark_in, mode) #watermakred_embedding
             x=Noise_injection(x,robustness=self.robustness,noise_power=self.noise_power)
-            watermark_fin= extract_watermark(x,1024)
+            watermark_fin= post_extract_watermark(x, watermark_size, mode=mode)
+
+            if torch.is_complex(x):
+                x = x.to(torch.float32)
+            
             x = self.Dropout(x)
             x = self.Bottleneck(x)
             x = self.last_bn(x)

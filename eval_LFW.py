@@ -4,9 +4,9 @@ import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
 import os
-from nets.facenet import Facenet, Facenet_loss
+from nets.facenet import Facenet
 from utils.dataloader import LFWDataset
-from utils.utils_metrics import test, LSB_test, loss_baseline_test
+from utils.utils_metrics import test, LSB_test, post_test
 
 if __name__ == "__main__":
     parse = argparse.ArgumentParser()
@@ -24,13 +24,13 @@ if __name__ == "__main__":
 
     parse.add_argument('--original', type=bool, default=False, help='Whether modulate the mode')
 
-    parse.add_argument('--robustness', type=str, default='none', help='', choices=['none', 'noise', 'flip','round','combine','random_del'])
+    parse.add_argument('--robustness', type=str, default='none', help='', choices=['none', 'noise', 'flip', 'combine'])
 
     parse.add_argument('--png_save_path', type=str, default='model_data/roc_test.png', help='Roc save path')
-    parse.add_argument('--LSB', type=bool, default=False, help='Eval LSB Baseline')
-    parse.add_argument('--test_rank', type=int, default=21, help='Eval rank')
-    parse.add_argument('--noise_power', type=float, default=0, help='noise scale')
-    parse.add_argument('--loss_baseline', type=bool, default=False, help='Whether train loss_baseline')
+
+    # parse.add_argument('--LSB', type=bool, default=False, help='Eval LSB Baseline')
+    parse.add_argument("--post", type=str, default="None", choices=["None", "LSB", "FFT", "Noise"], help='Eval LSB Baseline')
+
     args = parse.parse_args()
     #--------------------------------------#
     #   是否使用Cuda
@@ -50,7 +50,8 @@ if __name__ == "__main__":
     #--------------------------------------#
     #   训练好的权值文件
     #--------------------------------------#
-    LSB = args.LSB
+    # LSB = args.LSB
+    post = args.post
     #--------------------------------------#
     #   评估LSB Baseline
     #--------------------------------------#
@@ -69,7 +70,6 @@ if __name__ == "__main__":
     log_interval    = 1
     watermark_size=args.watermark_size
     robustness=args.robustness
-    loss_baseline = args.loss_baseline
     original = args.original
     #--------------------------------------#
     #   ROC图的保存路径
@@ -79,22 +79,15 @@ if __name__ == "__main__":
     test_loader = torch.utils.data.DataLoader(
         LFWDataset(dir=lfw_dir_path, pairs_path=lfw_pairs_path, image_size=input_shape), batch_size=batch_size, shuffle=False)
 
-    test_rank=args.test_rank
-    noise_power=args.noise_power
+    test_rank=21
+    noise_power=0
     for i in range(test_rank) :
         if i == 0:
             robustness="none"
         else:
             robustness=args.robustness
-            if robustness == "round":
-                noise_power -= 1
-            else:
-                noise_power+=0.05
-        if loss_baseline:
-            model = Facenet_loss(backbone=backbone,mode="predict",
-                                 dropout_keep_prob=0.5,robustness=robustness,noise_power=noise_power)
-        else:
-            model = Facenet(backbone=backbone, mode="predict",watermark_size=watermark_size,robustness=robustness,noise_power=noise_power)
+            noise_power+=0.05
+        model = Facenet(backbone=backbone, mode="predict",watermark_size=watermark_size,robustness=robustness,noise_power=noise_power)
 
         print('Loading weights into state dict...')
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -121,10 +114,9 @@ if __name__ == "__main__":
             model = torch.nn.DataParallel(model)
             cudnn.benchmark = True
             model = model.cuda()
-        if LSB :
-            watermark_size=1024
-            LSB_test(test_loader, model, png_save_path, log_interval, batch_size, cuda, watermark_size)
-        elif loss_baseline:
-            loss_baseline_test(test_loader, model, png_save_path, log_interval, batch_size, cuda, watermark_size)
+        if post != "None" :
+            # watermark_size=1024
+            # LSB_test(test_loader, model, png_save_path, log_interval, batch_size, cuda, watermark_size)
+            post_test(test_loader, model, png_save_path, log_interval, batch_size, cuda, args.watermark_size, post_method=post)
         else:
             test(test_loader, model, png_save_path, log_interval, batch_size, cuda, watermark_size, original)
