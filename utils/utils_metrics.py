@@ -350,8 +350,8 @@ def post_test(test_loader, model, png_save_path, log_interval, batch_size, cuda,
             dists = torch.sqrt(torch.sum((out_a - out_p) ** 2, 1))
             sameface_dists=torch.sqrt(torch.sum((out_a1 - out_p) ** 2, 1))
             acc_wm += torch.mean((out_wm1 == data_wm).type(torch.FloatTensor))
-            acc_wm += torch.mean((out_wm2 == data_wm).type(torch.FloatTensor))
-            num += 2
+            # acc_wm += torch.mean((out_wm2 == data_wm).type(torch.FloatTensor))
+            num += 1
         #--------------------------------------#
         #   将结果添加进列表中
         #--------------------------------------#
@@ -388,10 +388,10 @@ def post_test(test_loader, model, png_save_path, log_interval, batch_size, cuda,
     print('Best_thresholds: %2.5f' % best_thresholds)
     print('Validation rate: %2.5f+-%2.5f @ FAR=%2.5f' % (val, val_std, far))
 
-    with open(f"eval_robustness/{post_method}_{robustness}_{noise_power}_LFWacc.txt", 'a') as f:
+    with open(f"eval_robustness/{post_method}_{robustness}_LFWacc.txt", 'a') as f:
          f.write(str(np.mean(accuracy)))
          f.write("\n")
-    with open(f"eval_robustness/{post_method}_{robustness}_{noise_power}_wmacc.txt", 'a') as f:
+    with open(f"eval_robustness/{post_method}_{robustness}_wmacc.txt", 'a') as f:
          f.write(str(acc_wm.item()))
          f.write("\n")
 def plot_roc(fpr, tpr, figure_name = "roc.png"):

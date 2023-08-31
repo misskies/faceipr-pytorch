@@ -99,15 +99,26 @@ def Noise_injection(feature_in,robustness="none",noise_power=0.1):
     elif robustness == "round" :
         assert round_scale >= 0
         feature_in = feature_in * (10**round_scale)
-        feature_in = torch.round(feature_in)
+
+        if torch.is_complex(feature_in):
+            feature_in.real = torch.round(feature_in.real)
+            feature_in.imag = torch.round(feature_in.imag)
+        else:
+            feature_in = torch.round(feature_in)
+
         feature_perb = feature_in / (10**round_scale)
     elif robustness == "random_del" :
-        random = torch.randn_like(feature_in)
-        zero = torch.zeros_like(random)
-        one = torch.ones_like(random)
-        random = torch.where(random <= noise_power,zero,random)
-        random = torch.where(random > noise_power, one, random)
-        feature_perb = random * feature_in
+        
+        random = torch.rand(feature_in.shape).to(feature_in.device)
+        mask = random > noise_power
+        feature_perb = feature_in * mask
+
+        # random = torch.randn(feature_in.shape).to(feature_in.device)
+        # zero = torch.zeros_like(random)
+        # one = torch.ones_like(random)
+        # random = torch.where(random <= noise_power,zero,random)
+        # random = torch.where(random > noise_power, one, random)
+        # feature_perb = random * feature_in
     elif robustness == "none":
         feature_perb = feature_in
     else:

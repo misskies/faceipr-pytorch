@@ -24,7 +24,7 @@ if __name__ == "__main__":
 
     parse.add_argument('--original', type=bool, default=False, help='Whether modulate the mode')
 
-    parse.add_argument('--robustness', type=str, default='none', help='', choices=['none', 'noise', 'flip', 'combine'])
+    parse.add_argument('--robustness', type=str, default='none', help='', choices=['none', 'noise', 'flip', 'round', 'random_del','combine'])
 
     parse.add_argument('--png_save_path', type=str, default='model_data/roc_test.png', help='Roc save path')
 
@@ -88,7 +88,11 @@ if __name__ == "__main__":
             robustness="none"
         else:
             robustness=args.robustness
-            noise_power+=0.05
+            if robustness == "round":
+                noise_power -= 1
+            else:
+                noise_power+=0.05
+            
         model = Facenet(backbone=backbone, mode="predict",watermark_size=watermark_size,robustness=robustness,noise_power=noise_power)
 
         print('Loading weights into state dict...')
@@ -119,6 +123,6 @@ if __name__ == "__main__":
         if post != "None" :
             # watermark_size=1024
             # LSB_test(test_loader, model, png_save_path, log_interval, batch_size, cuda, watermark_size)
-            post_test(test_loader, model, png_save_path, log_interval, batch_size, cuda, args.watermark_size, post_method=post, robustness=args.robustness, noise_power=noise_power)
+            post_test(test_loader, model, png_save_path, log_interval, batch_size, cuda, args.watermark_size, post_method=post, robustness=robustness, noise_power=noise_power)
         else:
             test(test_loader, model, png_save_path, log_interval, batch_size, cuda, watermark_size, original)
