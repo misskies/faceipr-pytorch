@@ -98,7 +98,7 @@ def calculate_val_far(threshold, dist, actual_issame):
     far = float(false_accept) / float(n_diff)
     return val, far
 
-def test(test_loader, model, png_save_path, log_interval, batch_size, cuda,watermark_size,origin):
+def test(test_loader, model, png_save_path, log_interval, batch_size, cuda,watermark_size,origin,robuseness,noisepower,test_robustness):
     labels, distances,sameface_distances= [], [],[]
     wm_accuracy=0
     acc_wm=0
@@ -177,15 +177,15 @@ def test(test_loader, model, png_save_path, log_interval, batch_size, cuda,water
     print('Accuracy: %2.5f+-%2.5f' % (np.mean(accuracy), np.std(accuracy)))
     print('Best_thresholds: %2.5f' % best_thresholds)
     print('Validation rate: %2.5f+-%2.5f @ FAR=%2.5f' % (val, val_std, far))
-
-    with open("eval_robustness/Confrontation_train_noise-0.2_LFWacc.txt", 'a') as f:
+    #
+    with open(f"eval_robustness/wm32_{test_robustness}_LFWacc.txt", 'a') as f:
         f.write(str(np.mean(accuracy)))
         f.write("\n")
-    # with open("eval_robustness/Confrontation_random_del-0.1_wmacc.txt", 'a') as f:
-    #     f.write(str(acc_wm.item()))
-    #     f.write("\n")
+    with open(f"eval_robustness/wm32_{test_robustness}_wmacc.txt", 'a') as f:
+        f.write(str(acc_wm.item()))
+        f.write("\n")
 
-def loss_baseline_test(test_loader, model, png_save_path, log_interval, batch_size, cuda,watermark_size):
+def loss_baseline_test(test_loader, model, png_save_path, log_interval, batch_size, cuda,watermark_size,robustness,noise_power,test_robustness):
     labels, distances,sameface_distances= [], [],[]
     wm_accuracy=0
     acc_wm=0
@@ -244,13 +244,13 @@ def loss_baseline_test(test_loader, model, png_save_path, log_interval, batch_si
     print('Best_thresholds: %2.5f' % best_thresholds)
     print('Validation rate: %2.5f+-%2.5f @ FAR=%2.5f' % (val, val_std, far))
     plot_roc(fpr, tpr, figure_name = png_save_path)
-    #
-    # with open("eval_robustness/loss-baseline_random-del_LFWacc.txt", 'a') as f:
+
+    # with open(f"eval_robustness/loss-baseline_{robustness}_LFWacc.txt", 'a') as f:
     #     f.write(str(np.mean(accuracy)))
     #     f.write("\n")
-    # with open("eval_robustness/loss-baseline_random-del_wmacc.txt", 'a') as f:
-    #     f.write(str(acc_wm.item()))
-    #     f.write("\n")
+    with open(f"eval_robustness/loss-baseline_{test_robustness}_wmacc.txt", 'a') as f:
+        f.write(str(acc_wm.item()))
+        f.write("\n")
 
 def LSB_test(test_loader, model, png_save_path, log_interval, batch_size, cuda,watermark_size):
     labels, distances,sameface_distances= [], [],[]
@@ -323,7 +323,7 @@ def LSB_test(test_loader, model, png_save_path, log_interval, batch_size, cuda,w
 
 
 
-def post_test(test_loader, model, png_save_path, log_interval, batch_size, cuda,watermark_size, post_method, robustness, noise_power):
+def post_test(test_loader, model, png_save_path, log_interval, batch_size, cuda,watermark_size, post_method, robustness, noise_power,test_robustness):
     labels, distances,sameface_distances= [], [],[]
     wm_accuracy=0
     acc_wm=0
@@ -388,10 +388,10 @@ def post_test(test_loader, model, png_save_path, log_interval, batch_size, cuda,
     print('Best_thresholds: %2.5f' % best_thresholds)
     print('Validation rate: %2.5f+-%2.5f @ FAR=%2.5f' % (val, val_std, far))
 
-    with open(f"eval_robustness/{post_method}_{robustness}_LFWacc.txt", 'a') as f:
+    with open(f"eval_robustness/{post_method}_{test_robustness}_LFWacc.txt", 'a') as f:
          f.write(str(np.mean(accuracy)))
          f.write("\n")
-    with open(f"eval_robustness/{post_method}_{robustness}_wmacc.txt", 'a') as f:
+    with open(f"eval_robustness/{post_method}_{test_robustness}_wmacc.txt", 'a') as f:
          f.write(str(acc_wm.item()))
          f.write("\n")
 def plot_roc(fpr, tpr, figure_name = "roc.png"):

@@ -94,8 +94,10 @@ def Noise_injection(feature_in,robustness="none",noise_power=0.1):
         mask = torch.rand_like(feature_in) < flip_prob
         feature_perb = feature_in * (-1) ** mask
     elif robustness == "combine":
-        mask = torch.rand_like(feature_in) < flip_prob
-        feature_perb = feature_in * (-1) ** mask + torch.randn_like(feature_in) * noise_scale
+        round_scale  = int((1-noise_power)*10)
+        feature_perb = Noise_injection(feature_in,"noise",noise_power)
+        feature_perb = Noise_injection(feature_perb,"round",round_scale)
+        feature_perb = Noise_injection(feature_perb,"random_del",noise_power)
     elif robustness == "round" :
         assert round_scale >= 0
         feature_in = feature_in * (10**round_scale)

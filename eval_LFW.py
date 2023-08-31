@@ -11,7 +11,7 @@ from utils.utils_metrics import test, LSB_test, post_test, loss_baseline_test
 if __name__ == "__main__":
     parse = argparse.ArgumentParser()
     parse.add_argument('--input_shape', type=list, default=[160, 160, 3], help='input shape')
-    parse.add_argument('--batch_size', type=int, default=256, help='batch size')
+    parse.add_argument('--batch_size', type=int, default=128, help='batch size')
     parse.add_argument('--backbone', type=str, default='mobilenet', help='backbone')
     parse.add_argument('--model_path', type=str,
                        default='',
@@ -133,9 +133,9 @@ if __name__ == "__main__":
             # watermark_size=1024
             # LSB_test(test_loader, model, png_save_path, log_interval, batch_size, cuda, watermark_size)
             post_test(test_loader, model, png_save_path, log_interval, batch_size, cuda, args.watermark_size,
-                      post_method=post, robustness=robustness, noise_power=noise_power)
+                      post_method=post, robustness=robustness, noise_power=noise_power,test_robustness=args.robustness)
         else:
             if loss_baseline:
-                loss_baseline_test(test_loader, model, png_save_path, log_interval, batch_size, cuda, watermark_size)
+                loss_baseline_test(test_loader, model, png_save_path, log_interval, batch_size, cuda, watermark_size,robustness,noise_power,test_robustness=args.robustness)
             else:
-                test(test_loader, model, png_save_path, log_interval, batch_size, cuda, watermark_size, original)
+                test(test_loader, model, png_save_path, log_interval, batch_size, cuda, watermark_size, original,robustness,noise_power,test_robustness=args.robustness)
