@@ -24,7 +24,7 @@ class FaceWebDataset(Dataset):
 
     def __getitem__(self, idx):
         image_path = self.image_paths[idx]
-        image_path = image_path[:len(image_path) - 1]
+        image_path = image_path.rstrip('\n')
         img = Image.open(image_path).convert('RGB')
         img = img.resize((160,160))
         if self.transform :
@@ -32,6 +32,13 @@ class FaceWebDataset(Dataset):
 
         return img
 
+class EmbeddingDataset(Dataset):
+    def __init__(self,tensor_list):
+        self.tensor_list = tensor_list
+    def __len__(self):
+        return len(self.tensor_list)
+    def __getitem__(self, idx):
+        return self.tensor_list[idx]
 class FacenetDataset(Dataset):
     def __init__(self, input_shape, lines, num_classes, random):
         self.input_shape    = input_shape

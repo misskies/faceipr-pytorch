@@ -8,7 +8,6 @@ import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 import torch.optim as optim
 from PIL import Image
-from torch import cuda
 from torch.utils.data import DataLoader
 from torchvision.transforms import ToTensor
 
@@ -37,7 +36,7 @@ if __name__ == "__main__":
     parse = argparse.ArgumentParser()
     parse.add_argument('--seed', type=int, default=20, help='random seed')
     parse.add_argument('--input_shape', type=list, default=[160, 160, 3], help='input shape')
-    parse.add_argument('--batch_size', type=int, default=150, help='batch size')
+    parse.add_argument('--batch_size', type=int, default=500, help='batch size')
     parse.add_argument('--num_workers', type=int, default=4, help='num workers')
     parse.add_argument('--lr', type=float, default=1e-3, help='learning rate')
     parse.add_argument('--momentum', type=float, default=0.9, help='momentum')
@@ -297,13 +296,17 @@ if __name__ == "__main__":
         dataset = FaceWebDataset(lines,transform = ToTensor())
         dataloader = torch.utils.data.DataLoader(dataset,batch_size=batch_size,shuffle=False)
         tensor_list = []
+        num = 0
         for iteration ,batch in enumerate(dataloader):
             images = batch
-            # if cuda :
-            #     images = images.cuda(local_rank)
+            if cuda :
+                images = images.cuda(local_rank)
             embedding  = model(images,None,"original_predict")
-            tensor_list.append(embedding)
-            print(embedding.size())
+            tmp_list = torch.split(embedding,1)
+            num +=images.shape[0]
+            for  i in tmp_list:
+                tensor_list.append(i)
+            print(num)
         print("over")
         torch.save(tensor_list,'Embedding_dataset.pt')
 
