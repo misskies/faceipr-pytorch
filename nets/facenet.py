@@ -432,18 +432,16 @@ class Facenet(nn.Module):
             x = F.normalize(x, p=2, dim=1)
             return x,watermark_fin
 
-        if mode == 'no-noise_LSB':
-            watermark_out=None
+        if mode == 'original_predict':
+            watermark_out = None
             x = self.backbone(x, watermark_out)
             x = self.avg(x)
             x = x.view(x.size(0), -1)
-            x = embed_watermark(x,watermark_in) #watermakred_embedding
-            watermark_fin= extract_watermark(x,1024)
             x = self.Dropout(x)
             x = self.Bottleneck(x)
-            x = self.last_bn(x)
+            x = self.last_bn(x)  # feature
             x = F.normalize(x, p=2, dim=1)
-            return x,watermark_fin
+            return x
 
         watermark_out=self.watermark_Encoder(watermark_in)
         x = self.backbone(x,watermark_out)
@@ -540,21 +538,6 @@ class Facenet_128(nn.Module):
             watermark_fin=self.watermark_Decoder(x)
             return x,watermark_fin
 
-        if mode == 'LSB':
-            watermark_out=None
-            x = self.backbone(x, watermark_out)
-            x = self.avg(x)
-            x = x.view(x.size(0), -1)
-            x = self.Dropout(x)
-            x = self.Bottleneck(x)
-            x = self.last_bn(x)
-            x = F.normalize(x, p=2, dim=1)
-            
-            x = embed_watermark(x,watermark_in) #watermakred_embedding
-            x=Noise_injection(x,robustness=self.robustness,noise_power=self.noise_power)
-            watermark_fin= extract_watermark(x,1024)
-
-            return x,watermark_fin
 
         watermark_out=self.watermark_Encoder(watermark_in)
         x = self.backbone(x,watermark_out)

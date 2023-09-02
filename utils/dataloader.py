@@ -14,6 +14,24 @@ from .utils import cvtColor, preprocess_input, resize_image
 def rand(a=0, b=1):
     return np.random.rand()*(b-a) + a
 
+class FaceWebDataset(Dataset):
+    def __init__(self,image_paths,transform=None):
+        self.image_paths=image_paths
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.image_paths)
+
+    def __getitem__(self, idx):
+        image_path = self.image_paths[idx]
+        image_path = image_path[:len(image_path) - 1]
+        img = Image.open(image_path).convert('RGB')
+        img = img.resize((160,160))
+        if self.transform :
+            img = self.transform(img)
+
+        return img
+
 class FacenetDataset(Dataset):
     def __init__(self, input_shape, lines, num_classes, random):
         self.input_shape    = input_shape
