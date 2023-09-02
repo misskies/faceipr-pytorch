@@ -267,10 +267,7 @@ if __name__ == "__main__":
         model = Facenet_128(backbone=backbone, num_classes=num_classes, pretrained=pretrained,
                     watermark_size=watermark_size,dropout_keep_prob=0.5, robustness=args.robustness,noise_power=args.noise_power)
     elif PostNet:
-        watermark_size = 128
-        model = Postnet()
-        watermark = torch.empty(1, watermark_size).uniform_(0, 1)
-        loss_baseline_watermark_in = torch.bernoulli(watermark).repeat(batch_size, 1)
+        model = Postnet(watermark_size=watermark_size)
     else:
         model = Facenet(backbone=backbone, num_classes=num_classes, pretrained=pretrained,
                     watermark_size=watermark_size,dropout_keep_prob=0.5, robustness=args.robustness,noise_power=args.noise_power, decoder_arch=args.decoder_arch)
@@ -456,7 +453,7 @@ if __name__ == "__main__":
             elif PostNet:
                 PostNet_fit_one_epoch(model_train, model, loss_history, loss,loss2,optimizer, epoch, epoch_step,
                               epoch_step_val, gen,gen_val, Epoch, Cuda, LFW_loader, batch_size, lfw_eval_flag,
-                              fp16, scaler, save_period, save_dir, local_rank,watermark_size,loss_baseline_watermark_in)
+                              fp16, scaler, save_period, save_dir, local_rank,watermark_size)
             else:
                 fit_one_epoch(model_train, model, loss_history, loss,loss2,optimizer, epoch, epoch_step,
                               epoch_step_val, gen,gen_val, Epoch, Cuda, LFW_loader, batch_size//3, lfw_eval_flag,

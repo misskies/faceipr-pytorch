@@ -25,7 +25,9 @@ class LossHistory():
         a = torch.empty(2, watermark_size).uniform_(0, 1)
         a=torch.bernoulli(a)
         if PostNet :
-            dummy_input = torch.randn(2,128)
+            watermark = torch.empty(2, watermark_size).uniform_(0, 1)
+            watermark_in = torch.bernoulli(watermark)
+            dummy_input = torch.randn(2,128),watermark_in
         else:
             dummy_input     = torch.randn(2, 3, input_shape[0], input_shape[1]),a
         #dummy_input     = torch.randn(2, 3, input_shape[0], input_shape[1]),None,"origin"

@@ -41,7 +41,7 @@ class AutomaticWeightedLoss(nn.Module):
 
 def PostNet_fit_one_epoch(model_train, model, loss_history, loss, loss2, optimizer, epoch, epoch_step, epoch_step_val, gen,
                   gen_val, Epoch, cuda, test_loader, Batch_size, lfw_eval_flag, fp16, scaler, save_period, save_dir,
-                  local_rank, watermark_size, watermark_in):
+                  local_rank, watermark_size):
 
     total_embedding_loss = 0
     total_wm_accuracy = 0
@@ -59,6 +59,8 @@ def PostNet_fit_one_epoch(model_train, model, loss_history, loss, loss2, optimiz
         if iteration >= epoch_step:
             break
         embedding_in = batch
+        watermark = torch.empty(batch.shape[0], watermark_size).uniform_(0, 1)
+        watermark_in = torch.bernoulli(watermark)
         with torch.no_grad():
             if cuda:
                 embedding_in = embedding_in.cuda(local_rank)
@@ -66,7 +68,7 @@ def PostNet_fit_one_epoch(model_train, model, loss_history, loss, loss2, optimiz
 
         optimizer.zero_grad()
         if not fp16:
-            embedding_out, watermark_out= model_train(embedding_in)
+            embedding_out, watermark_out= model_train(embedding_in,watermark_in)
             _watermark_loss = loss2(watermark_out, watermark_in)
             loss = nn.MSELoss()
             _embedding_loss = loss(embedding_out,embedding_in)
@@ -103,6 +105,8 @@ def PostNet_fit_one_epoch(model_train, model, loss_history, loss, loss2, optimiz
         if iteration >= epoch_step_val:
             break
         embedding_in = batch
+        watermark = torch.empty(batch.shape[0], watermark_size).uniform_(0, 1)
+        watermark_in = torch.bernoulli(watermark)
         with torch.no_grad():
             if cuda:
                 embedding_in = embedding_in.cuda(local_rank)
@@ -110,7 +114,7 @@ def PostNet_fit_one_epoch(model_train, model, loss_history, loss, loss2, optimiz
 
         optimizer.zero_grad()
         if not fp16:
-            embedding_out, watermark_out = model_train(embedding_in)
+            embedding_out, watermark_out = model_train(embedding_in,watermark_in)
             _watermark_loss = loss2(watermark_out, watermark_in)
             loss = nn.MSELoss()
             _embedding_loss = loss(embedding_out, embedding_in)
