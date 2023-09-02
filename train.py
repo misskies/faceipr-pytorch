@@ -6,14 +6,16 @@ import torch
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 import torch.optim as optim
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split
 
+from nets.PostNet import Postnet
 from nets.facenet import Facenet, Facenet_loss, Facenet_128
 from nets.facenet_training import (get_lr_scheduler, set_optimizer_lr,
                                    triplet_loss, weights_init, watermark_loss)
 from utils.callback import LossHistory
-from utils.dataloader import FacenetDataset, LFWDataset, dataset_collate
+from utils.dataloader import FacenetDataset, LFWDataset, dataset_collate, EmbeddingDataset
 from utils.utils import get_num_classes, show_config
+from utils.utils_PostNet_fit import PostNet_fit_one_epoch
 from utils.utils_fit import fit_one_epoch
 import argparse
 from utils.utils_original_fit import original_fit_one_epoch
@@ -69,7 +71,8 @@ if __name__ == "__main__":
     parse.add_argument('--embed_128', default=False,  action="store_true", help='Whether use 128 demension embedding')
     
     parse.add_argument('--local_rank', type=int, default=0, help='local rank')
-    
+
+    parse.add_argument('--PostNet', type=bool, default=False, help='Whether train PostNet')
 
     args = parse.parse_args()
 
@@ -218,7 +221,10 @@ if __name__ == "__main__":
     #------------------------------------------------------------------#
     lfw_dir_path    = args.lfw_dir_path
     lfw_pairs_path  = args.lfw_pairs_path
-
+    #------------------------------------------------------#
+    #   设置用到的显卡
+    #------------------------------------------------------#
+    PostNet = args.PostNet
     #------------------------------------------------------#
     #   设置用到的显卡
     #------------------------------------------------------#
@@ -260,7 +266,11 @@ if __name__ == "__main__":
 
         model = Facenet_128(backbone=backbone, num_classes=num_classes, pretrained=pretrained,
                     watermark_size=watermark_size,dropout_keep_prob=0.5, robustness=args.robustness,noise_power=args.noise_power)
- 
+    elif PostNet:
+        watermark_size = 128
+        model = Postnet()
+        watermark = torch.empty(1, watermark_size).uniform_(0, 1)
+        loss_baseline_watermark_in = torch.bernoulli(watermark).repeat(batch_size, 1)
     else:
         model = Facenet(backbone=backbone, num_classes=num_classes, pretrained=pretrained,
                     watermark_size=watermark_size,dropout_keep_prob=0.5, robustness=args.robustness,noise_power=args.noise_power, decoder_arch=args.decoder_arch)
@@ -303,7 +313,7 @@ if __name__ == "__main__":
     #   记录Loss
     #----------------------#
     if local_rank == 0:
-        loss_history = LossHistory(save_dir, model, input_shape=input_shape,watermark_size=watermark_size)
+        loss_history = LossHistory(save_dir, model, input_shape=input_shape,watermark_size=watermark_size,PostNet=PostNet)
     else:
         loss_history = None
         
@@ -405,8 +415,15 @@ if __name__ == "__main__":
         #---------------------------------------#
         #   构建数据集加载器。
         #---------------------------------------#
-        train_dataset   = FacenetDataset(input_shape, lines[:num_train], num_classes, random = True)
-        val_dataset     = FacenetDataset(input_shape, lines[num_train:], num_classes, random = False)
+        if PostNet :
+            file_path = "/home/lsf/facenet-pytorch/embedding_tensor"
+            dataset = EmbeddingDataset(file_path)
+            train_size = int(len(dataset)*(1-val_split))
+            val_size = len(dataset) - train_size
+            train_dataset,val_dataset =random_split(dataset,[train_size,val_size])
+        else:
+            train_dataset   = FacenetDataset(input_shape, lines[:num_train], num_classes, random = True)
+            val_dataset     = FacenetDataset(input_shape, lines[num_train:], num_classes, random = False)
 
         if distributed:
             train_sampler   = torch.utils.data.distributed.DistributedSampler(train_dataset, shuffle=True,)
@@ -417,10 +434,14 @@ if __name__ == "__main__":
             train_sampler   = None
             val_sampler     = None
             shuffle         = True
-        
-        gen             = DataLoader(train_dataset, shuffle=shuffle, batch_size=batch_size//3, num_workers=num_workers, pin_memory=True,
+
+        if PostNet :
+            gen = DataLoader(train_dataset,shuffle=shuffle,batch_size=batch_size)
+            gen_val = DataLoader(val_dataset,shuffle=shuffle,batch_size=batch_size)
+        else:
+            gen             = DataLoader(train_dataset, shuffle=shuffle, batch_size=batch_size//3, num_workers=num_workers, pin_memory=True,
                                 drop_last=True, collate_fn=dataset_collate, sampler=train_sampler)
-        gen_val         = DataLoader(val_dataset, shuffle=shuffle, batch_size=batch_size//3, num_workers=num_workers, pin_memory=True,
+            gen_val         = DataLoader(val_dataset, shuffle=shuffle, batch_size=batch_size//3, num_workers=num_workers, pin_memory=True,
                                 drop_last=True, collate_fn=dataset_collate, sampler=val_sampler)
 
         for epoch in range(Init_Epoch, Epoch):
@@ -432,6 +453,10 @@ if __name__ == "__main__":
                 original_fit_one_epoch(model_train, model, loss_history, loss, loss2, optimizer, epoch, epoch_step,
                               epoch_step_val, gen, gen_val, Epoch, Cuda, LFW_loader, batch_size // 3, lfw_eval_flag,
                               fp16, scaler, save_period, save_dir, local_rank, watermark_size)
+            elif PostNet:
+                PostNet_fit_one_epoch(model_train, model, loss_history, loss,loss2,optimizer, epoch, epoch_step,
+                              epoch_step_val, gen,gen_val, Epoch, Cuda, LFW_loader, batch_size, lfw_eval_flag,
+                              fp16, scaler, save_period, save_dir, local_rank,watermark_size,loss_baseline_watermark_in)
             else:
                 fit_one_epoch(model_train, model, loss_history, loss,loss2,optimizer, epoch, epoch_step,
                               epoch_step_val, gen,gen_val, Epoch, Cuda, LFW_loader, batch_size//3, lfw_eval_flag,

@@ -1,4 +1,4 @@
-
+import glob
 import os
 import random
 
@@ -33,12 +33,29 @@ class FaceWebDataset(Dataset):
         return img
 
 class EmbeddingDataset(Dataset):
-    def __init__(self,tensor_list):
-        self.tensor_list = tensor_list
+    def __init__(self,flie_path):
+        self.flie_path = flie_path
     def __len__(self):
-        return len(self.tensor_list)
+        tensor_len = 0
+        file_list = glob.glob(os.path.join(self.flie_path,'*'))
+        for path in file_list:
+            data = torch.load(path)
+            tensor_len += len(data)
+        return tensor_len
     def __getitem__(self, idx):
-        return self.tensor_list[idx]
+        index = str(idx // 72)
+        idx = idx % 72
+        path = 'Embedding_dataset'+index+'.pt'
+        tensor_path = os.path.join(self.flie_path,path)
+        tensor_list = torch.load(tensor_path)
+        return tensor_list[idx]
+
+
+
+
+
+
+
 class FacenetDataset(Dataset):
     def __init__(self, input_shape, lines, num_classes, random):
         self.input_shape    = input_shape
