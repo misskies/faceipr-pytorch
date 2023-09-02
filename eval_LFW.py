@@ -35,6 +35,7 @@ if __name__ == "__main__":
     parse.add_argument("--test_rank", type=int, default="21", help='eval rank')
     parse.add_argument("--noise_power", type=float, default="0", help='noise power')
     parse.add_argument('--loss_baseline', type=bool, default=False, help='Whether eval loss_baseline')
+    parse.add_argument("--test_robustness", type=str, default="None",help='filename')
 
     args = parse.parse_args()
     # --------------------------------------#
@@ -76,6 +77,10 @@ if __name__ == "__main__":
     watermark_size = args.watermark_size
     robustness = args.robustness
     original = args.original
+    if args.test_robustness == None:
+        test_robustness =robustness
+    else:
+        test_robustness =args.test_robustness
     # --------------------------------------#
     #   ROC图的保存路径
     # --------------------------------------#
@@ -133,9 +138,9 @@ if __name__ == "__main__":
             # watermark_size=1024
             # LSB_test(test_loader, model, png_save_path, log_interval, batch_size, cuda, watermark_size)
             post_test(test_loader, model, png_save_path, log_interval, batch_size, cuda, args.watermark_size,
-                      post_method=post, robustness=robustness, noise_power=noise_power,test_robustness=args.robustness)
+                      post_method=post, robustness=robustness, noise_power=noise_power,test_robustness=test_robustness)
         else:
             if loss_baseline:
-                loss_baseline_test(test_loader, model, png_save_path, log_interval, batch_size, cuda, watermark_size,robustness,noise_power,test_robustness=args.robustness)
+                loss_baseline_test(test_loader, model, png_save_path, log_interval, batch_size, cuda, watermark_size,robustness,noise_power,test_robustness=test_robustness)
             else:
-                test(test_loader, model, png_save_path, log_interval, batch_size, cuda, watermark_size, original,robustness,noise_power,test_robustness=args.robustness)
+                test(test_loader, model, png_save_path, log_interval, batch_size, cuda, watermark_size, original,robustness,noise_power,test_robustness=test_robustness)
