@@ -9,6 +9,7 @@ import torch.distributed as dist
 import torch.optim as optim
 from PIL import Image
 from torch.utils.data import DataLoader
+from torch.version import cuda
 from torchvision.transforms import ToTensor
 
 from nets.facenet import Facenet, Facenet_loss, Facenet_128
@@ -30,13 +31,15 @@ def setup_seed(seed):
 
 
 if __name__ == "__main__":
-
+    print(torch.cuda.device_count())
+    print(torch.__version__)
+    print(torch.cuda.is_available())
     # torch.autograd.set_detect_anomaly(True)
 
     parse = argparse.ArgumentParser()
     parse.add_argument('--seed', type=int, default=20, help='random seed')
     parse.add_argument('--input_shape', type=list, default=[160, 160, 3], help='input shape')
-    parse.add_argument('--batch_size', type=int, default=500, help='batch size')
+    parse.add_argument('--batch_size', type=int, default=3, help='batch size')
     parse.add_argument('--num_workers', type=int, default=4, help='num workers')
     parse.add_argument('--lr', type=float, default=1e-3, help='learning rate')
     parse.add_argument('--momentum', type=float, default=0.9, help='momentum')
@@ -226,19 +229,9 @@ if __name__ == "__main__":
     #   设置用到的显卡
     # ------------------------------------------------------#
     ngpus_per_node = torch.cuda.device_count()
-    print(ngpus_per_node)
-    if distributed:
-        dist.init_process_group(backend="nccl")
-        local_rank = int(os.environ["LOCAL_RANK"])
-        rank = int(os.environ["RANK"])
-        device = torch.device("cuda", local_rank)
-        if local_rank == 0:
-            print(f"[{os.getpid()}] (rank = {rank}, local_rank = {local_rank}) training...")
-            print("Gpu Device Count : ", ngpus_per_node)
-    else:
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        local_rank = 0
-        rank = 0
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    local_rank = 0
+    rank = 0
 
     # ---------------------------------#
     #   载入模型并加载预训练权重
@@ -281,8 +274,9 @@ if __name__ == "__main__":
             print("\nSuccessful Load Key:", str(load_key)[:500], "……\nSuccessful Load Key Num:", len(load_key))
             print("\nFail To Load Key:", str(no_load_key)[:500], "……\nFail To Load Key num:", len(no_load_key))
             print("\n\033[1;33;44m温馨提示，head部分没有载入是正常现象，Backbone部分没有载入是错误的。\033[0m")
-
     scaler = None
+    print(device)
+    model = model.to(device)
     with open(annotation_path,"r") as f:
         lines = f.readlines()
 
