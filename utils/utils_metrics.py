@@ -133,7 +133,7 @@ def test(test_loader, model, png_save_path, log_interval, batch_size, cuda,water
                     out_a1,out_tmp = model(out_a1,data_wm1)
                     out_p, out_wm2 = model(out_p, data_wm)
                     sameface_dists       = dists # avoid error
-            else:
+                else:
                     out_a, out_wm1 = model(data_a, data_wm)
                     out_a1,out_tmp = model(data_a,data_wm1)
                     out_p, out_wm2 = model(data_p, data_wm,"no-noise_predict")
