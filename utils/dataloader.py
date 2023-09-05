@@ -1,4 +1,4 @@
-
+import glob
 import os
 import random
 
@@ -13,6 +13,48 @@ from .utils import cvtColor, preprocess_input, resize_image
 
 def rand(a=0, b=1):
     return np.random.rand()*(b-a) + a
+
+class FaceWebDataset(Dataset):
+    def __init__(self,image_paths,transform=None):
+        self.image_paths=image_paths
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.image_paths)
+
+    def __getitem__(self, idx):
+        image_path = self.image_paths[idx]
+        image_path = image_path.rstrip('\n')
+        img = Image.open(image_path).convert('RGB')
+        img = img.resize((160,160))
+        if self.transform :
+            img = self.transform(img)
+
+        return img
+
+class EmbeddingDataset(Dataset):
+    def __init__(self,flie_path):
+        self.flie_path = flie_path
+    def __len__(self):
+        tensor_len = 0
+        file_list = glob.glob(os.path.join(self.flie_path,'*'))
+        for path in file_list:
+            data = torch.load(path)
+            tensor_len += len(data)
+        return tensor_len
+    def __getitem__(self, idx):
+        index = str(idx // 72)
+        idx = idx % 72
+        path = 'Embedding_dataset'+index+'.pt'
+        tensor_path = os.path.join(self.flie_path,path)
+        tensor_list = torch.load(tensor_path)
+        return tensor_list[idx]
+
+
+
+
+
+
 
 class FacenetDataset(Dataset):
     def __init__(self, input_shape, lines, num_classes, random):

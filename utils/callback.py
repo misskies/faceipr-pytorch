@@ -10,7 +10,7 @@ from torch.utils.tensorboard import SummaryWriter
 import yaml
 
 class LossHistory():
-    def __init__(self, log_dir, model, input_shape,watermark_size):
+    def __init__(self, log_dir, model, input_shape,watermark_size,PostNet):
         time_str        = datetime.datetime.strftime(datetime.datetime.now(),'%Y_%m_%d_%H_%M_%S')
         self.log_dir    = os.path.join(log_dir, "loss_" + str(time_str))
         self.acc        = []
@@ -24,7 +24,12 @@ class LossHistory():
         self.writer     = SummaryWriter(self.log_dir)
         a = torch.empty(2, watermark_size).uniform_(0, 1)
         a=torch.bernoulli(a)
-        dummy_input     = torch.randn(2, 3, input_shape[0], input_shape[1]),a
+        if PostNet :
+            watermark = torch.empty(2, watermark_size).uniform_(0, 1)
+            watermark_in = torch.bernoulli(watermark)
+            dummy_input = torch.randn(2,128),watermark_in
+        else:
+            dummy_input     = torch.randn(2, 3, input_shape[0], input_shape[1]),a
         #dummy_input     = torch.randn(2, 3, input_shape[0], input_shape[1]),None,"origin"
         self.writer.add_graph(model, dummy_input)
 
