@@ -185,13 +185,14 @@ def test(test_loader, model, png_save_path, log_interval, batch_size, cuda,water
         f.write(str(acc_wm.item()))
         f.write("\n")
 
-def loss_baseline_test(test_loader, model, png_save_path, log_interval, batch_size, cuda,watermark_size,robustness,noise_power,test_robustness):
+def loss_baseline_test(test_loader, model, png_save_path, log_interval, batch_size, cuda,watermark_size,robustness,noise_power,test_robustness, wm_path):
     labels, distances,sameface_distances= [], [],[]
     wm_accuracy=0
     acc_wm=0
     num=0
     pbar = tqdm(enumerate(test_loader))
-    path = "/home/lsf/public/collaboration/facenet-pytorch/facenet-pytorch/trained_weight/faceweb_lossEmbed_mobilenet/loss_baseline_watermark_in.pt"
+    # path = "/home/lsf/public/collaboration/facenet-pytorch/facenet-pytorch/trained_weight/faceweb_lossEmbed_mobilenet/loss_baseline_watermark_in.pt"
+    path = wm_path 
     dict = torch.load(path)
     dict = list(dict)
     for batch_idx, (data_a, data_p, label) in pbar:
@@ -245,9 +246,9 @@ def loss_baseline_test(test_loader, model, png_save_path, log_interval, batch_si
     print('Validation rate: %2.5f+-%2.5f @ FAR=%2.5f' % (val, val_std, far))
     plot_roc(fpr, tpr, figure_name = png_save_path)
 
-    # with open(f"eval_robustness/loss-baseline_{robustness}_LFWacc.txt", 'a') as f:
-    #     f.write(str(np.mean(accuracy)))
-    #     f.write("\n")
+    with open(f"eval_robustness/loss-baseline_{test_robustness}_LFWacc.txt", 'a') as f:
+        f.write(str(np.mean(accuracy)))
+        f.write("\n")
     with open(f"eval_robustness/loss-baseline_{test_robustness}_wmacc.txt", 'a') as f:
         f.write(str(acc_wm.item()))
         f.write("\n")
