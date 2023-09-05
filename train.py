@@ -65,7 +65,7 @@ if __name__ == "__main__":
     parse.add_argument('--loss_baseline', type=bool, default=False, help='Whether train loss_baseline')
     parse.add_argument('--loss_baseline_lambda', type=float, default=1.0, help='the lambda watermark value in loss baseline')
 
-    parse.add_argument('--robustness', type=str, default='none', help='',  choices=['none', 'noise', 'flip','round','random_del','combine'])
+    parse.add_argument('--robustness', type=str, default='none', help='',  choices=['none', 'noise', 'flip','round','random_del','combine', 'combinev2', 'combinev3'])
     parse.add_argument('--noise_power',type=float,default=0.1,help='Noise injection power')
 
     parse.add_argument('--embed_128', default=False,  action="store_true", help='Whether use 128 demension embedding')
@@ -73,6 +73,9 @@ if __name__ == "__main__":
     parse.add_argument('--local_rank', type=int, default=0, help='local rank')
 
     parse.add_argument('--PostNet', type=bool, default=False, help='Whether train PostNet')
+
+    parse.add_argument('--ori_CEloss', type=bool, default=True, help='Whether use CE loss for original training')
+    
 
     args = parse.parse_args()
 
