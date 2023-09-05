@@ -98,7 +98,7 @@ def calculate_val_far(threshold, dist, actual_issame):
     far = float(false_accept) / float(n_diff)
     return val, far
 
-def test(test_loader, model, png_save_path, log_interval, batch_size, cuda,watermark_size,origin,robuseness,noisepower,test_robustness,PostNet,model1=None):
+def test(test_loader, model, png_save_path, log_interval, batch_size, cuda,watermark_size,origin,robustness,noise_power,test_robustness,PostNet,model1=None):
     labels, distances,sameface_distances= [], [],[]
     wm_accuracy=0
     acc_wm=0
@@ -123,6 +123,7 @@ def test(test_loader, model, png_save_path, log_interval, batch_size, cuda,water
                 out_a,out_wm1        =  model(data_a,data_wm,"Unmd_predict", robustness=robustness, noise_power=noise_power)
                 out_p,out_wm2        =  model(data_p,data_wm,"Unmd_predict", robustness='none')
                 dists                = torch.sqrt(torch.sum((out_a - out_p) ** 2, 1))
+                sameface_dists  = dists
             else:
                 if PostNet :
                     model1_wm = None
