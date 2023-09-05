@@ -111,6 +111,7 @@ if __name__ == "__main__":
         if loss_baseline:
             model = Facenet_loss(backbone=backbone,mode="predict",
                                  dropout_keep_prob=0.5,robustness=robustness,noise_power=noise_power)
+            model1 = None
         elif PostNet:
             model = Postnet(watermark_size)
             model1 = Facenet(backbone=backbone, mode="predict", watermark_size=watermark_size, robustness=robustness,
@@ -118,6 +119,7 @@ if __name__ == "__main__":
         else:
             model = Facenet(backbone=backbone, mode="predict", watermark_size=watermark_size, robustness=robustness,
                         noise_power=noise_power)
+            model1 = None
 
         print('Loading weights into state dict...')
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -164,9 +166,10 @@ if __name__ == "__main__":
             model = torch.nn.DataParallel(model)
             cudnn.benchmark = True
             model = model.cuda()
-            model1 = torch.nn.DataParallel(model1)
-            cudnn.benchmark = True
-            model1 = model1.cuda()
+            if model1 is not None:
+                model1 = torch.nn.DataParallel(model1)
+                cudnn.benchmark = True
+                model1 = model1.cuda()
         if post != "None":
             # watermark_size=1024
             # LSB_test(test_loader, model, png_save_path, log_interval, batch_size, cuda, watermark_size)
