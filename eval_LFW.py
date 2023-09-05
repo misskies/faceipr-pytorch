@@ -4,6 +4,8 @@ import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
 import os
+
+from nets.PostNet import Postnet
 from nets.facenet import Facenet, Facenet_loss
 from utils.dataloader import LFWDataset
 from utils.utils_metrics import test, LSB_test, post_test, loss_baseline_test
@@ -36,7 +38,7 @@ if __name__ == "__main__":
     parse.add_argument("--noise_power", type=float, default="0", help='noise power')
     parse.add_argument('--loss_baseline', type=bool, default=False, help='Whether eval loss_baseline')
     parse.add_argument("--test_robustness", type=str, default="None",help='filename')
-
+    parse.add_argument('--PostNet', type=bool, default=False, help='Whether train PostNet')
     args = parse.parse_args()
     # --------------------------------------#
     #   是否使用Cuda
@@ -77,7 +79,8 @@ if __name__ == "__main__":
     watermark_size = args.watermark_size
     robustness = args.robustness
     original = args.original
-    if args.test_robustness == "None":
+    PostNet = args.PostNet
+    if args.test_robustness == None:
         test_robustness =robustness
     else:
         test_robustness =args.test_robustness
@@ -105,6 +108,10 @@ if __name__ == "__main__":
         if loss_baseline:
             model = Facenet_loss(backbone=backbone,mode="predict",
                                  dropout_keep_prob=0.5,robustness=robustness,noise_power=noise_power)
+        elif PostNet:
+            model = Postnet(watermark_size)
+            model1 = Facenet(backbone=backbone, mode="predict", watermark_size=watermark_size, robustness=robustness,
+                        noise_power=noise_power)
         else:
             model = Facenet(backbone=backbone, mode="predict", watermark_size=watermark_size, robustness=robustness,
                         noise_power=noise_power)
@@ -129,11 +136,34 @@ if __name__ == "__main__":
         model = model.eval()
         print("\nSuccessful Load Key:", str(load_key)[:500], "……\nSuccessful Load Key Num:", len(load_key))
         print("\nFail To Load Key:", str(no_load_key)[:500], "……\nFail To Load Key num:", len(no_load_key))
+        if PostNet :
+            print('Loading weights extract_network...')
+            model1_dict = model1.state_dict()
+            model1_path = "/home/lsf/facenet-pytorch/trained_weight/faceweb_unmd_mobilenet/ep042-loss0.410-val_loss2.268.pth"
+            pre_dict = torch.load(model1_path, map_location=device)
+            load_key1, no_load_key1, temp_dict1 = [], [], {}
+            for k, v in pre_dict.items():
+                if k in model1_dict.keys() and np.shape(model1_dict[k]) == np.shape(v):
+                    if "Encoder" in k and "Decoder" in k:
+                        no_load_key1.append(k)
+                    else:
+                        temp_dict1[k] = v
+                        load_key1.append(k)
+                else:
+                    no_load_key1.append(k)
+            model1_dict.update(temp_dict1)
+            model1.load_state_dict(model1_dict)
+            model1 = model1.eval()
+            print("\nSuccessful Load Key:", str(load_key1)[:500], "……\nSuccessful Load Key Num:", len(load_key1))
+            print("\nFail To Load Key:", str(no_load_key1)[:500], "……\nFail To Load Key num:", len(no_load_key1))
 
         if cuda:
             model = torch.nn.DataParallel(model)
             cudnn.benchmark = True
             model = model.cuda()
+            model1 = torch.nn.DataParallel(model1)
+            cudnn.benchmark = True
+            model1 = model1.cuda()
         if post != "None":
             # watermark_size=1024
             # LSB_test(test_loader, model, png_save_path, log_interval, batch_size, cuda, watermark_size)
@@ -143,4 +173,4 @@ if __name__ == "__main__":
             if loss_baseline:
                 loss_baseline_test(test_loader, model, png_save_path, log_interval, batch_size, cuda, watermark_size,robustness,noise_power,test_robustness=test_robustness)
             else:
-                test(test_loader, model, png_save_path, log_interval, batch_size, cuda, watermark_size, original,robustness,noise_power,test_robustness=test_robustness)
+                test(test_loader, model,png_save_path, log_interval, batch_size, cuda, watermark_size, original,robustness,noise_power,test_robustness=test_robustness,PostNet=PostNet,model1=model1)
