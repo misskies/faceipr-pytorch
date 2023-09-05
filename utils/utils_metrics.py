@@ -98,7 +98,7 @@ def calculate_val_far(threshold, dist, actual_issame):
     far = float(false_accept) / float(n_diff)
     return val, far
 
-def test(test_loader, model, png_save_path, log_interval, batch_size, cuda,watermark_size,origin,robuseness,noisepower,test_robustness):
+def test(test_loader, model, png_save_path, log_interval, batch_size, cuda,watermark_size,origin,robustness,noise_power,test_robustness):
     labels, distances,sameface_distances= [], [],[]
     wm_accuracy=0
     acc_wm=0
@@ -120,9 +120,10 @@ def test(test_loader, model, png_save_path, log_interval, batch_size, cuda,water
             #   获得预测结果的距离
             #--------------------------------------#
             if origin:
-                out_a,out_wm1        =  model(data_a,data_wm,"Unmd_predict")
-                out_p,out_wm2        =  model(data_p,data_wm,"Unmd_predict")
-                dists               = torch.sqrt(torch.sum((out_a - out_p) ** 2, 1))
+                out_a,out_wm1        =  model(data_a,data_wm,"Unmd_predict", robustness=robustness, noise_power=noise_power)
+                out_p,out_wm2        =  model(data_p,data_wm,"Unmd_predict", robustness='none')
+                dists                = torch.sqrt(torch.sum((out_a - out_p) ** 2, 1))
+                sameface_dists       = dists # avoid error
             else:
                 out_a, out_wm1 = model(data_a, data_wm)
                 out_a1,out_tmp = model(data_a,data_wm1)
@@ -178,12 +179,19 @@ def test(test_loader, model, png_save_path, log_interval, batch_size, cuda,water
     print('Best_thresholds: %2.5f' % best_thresholds)
     print('Validation rate: %2.5f+-%2.5f @ FAR=%2.5f' % (val, val_std, far))
     #
-    with open(f"eval_robustness/wm32_{test_robustness}_LFWacc.txt", 'a') as f:
-        f.write(str(np.mean(accuracy)))
-        f.write("\n")
-    with open(f"eval_robustness/wm32_{test_robustness}_wmacc.txt", 'a') as f:
-        f.write(str(acc_wm.item()))
-        f.write("\n")
+    #
+    if origin:
+        with open(f"eval_robustness/origin_{test_robustness}_LFWacc.txt", 'a') as f:
+            f.write(str(np.mean(accuracy)))
+            f.write("\n")
+    else:
+
+        with open(f"eval_robustness/wm32_{test_robustness}_LFWacc.txt", 'a') as f:
+            f.write(str(np.mean(accuracy)))
+            f.write("\n")
+        with open(f"eval_robustness/wm32_{test_robustness}_wmacc.txt", 'a') as f:
+            f.write(str(acc_wm.item()))
+            f.write("\n")
 
 def loss_baseline_test(test_loader, model, png_save_path, log_interval, batch_size, cuda,watermark_size,robustness,noise_power,test_robustness):
     labels, distances,sameface_distances= [], [],[]

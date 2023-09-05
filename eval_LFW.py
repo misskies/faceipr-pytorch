@@ -25,7 +25,7 @@ if __name__ == "__main__":
     parse.add_argument('--original', type=bool, default=False, help='Whether modulate the mode')
 
     parse.add_argument('--robustness', type=str, default='none', help='',
-                       choices=['none', 'noise', 'flip', 'round', 'random_del', 'combine'])
+                       choices=['none', 'noise', 'flip', 'round', 'random_del', 'combine', 'combinev2', 'combinev3'])
 
     parse.add_argument('--png_save_path', type=str, default='model_data/roc_test.png', help='Roc save path')
 
@@ -77,7 +77,7 @@ if __name__ == "__main__":
     watermark_size = args.watermark_size
     robustness = args.robustness
     original = args.original
-    if args.test_robustness == None:
+    if args.test_robustness == "None":
         test_robustness =robustness
     else:
         test_robustness =args.test_robustness

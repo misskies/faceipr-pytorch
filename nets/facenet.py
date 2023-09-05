@@ -98,6 +98,27 @@ def Noise_injection(feature_in,robustness="none",noise_power=0.1):
         feature_perb = Noise_injection(feature_in,"noise",noise_power)
         feature_perb = Noise_injection(feature_perb,"round",round_scale)
         feature_perb = Noise_injection(feature_perb,"random_del",noise_power)
+
+    elif robustness == "combinev2":
+        round_scale  = int((1-noise_power)*10)
+
+        round_scale  = int((1-noise_power)*10)
+        feature_perb = Noise_injection(feature_in,"noise",noise_power)
+        # feature_perb = Noise_injection(feature_perb,"round",round_scale)
+        feature_perb = Noise_injection(feature_perb,"random_del",noise_power)
+        
+        
+    elif robustness == "combinev3":
+        round_scale  = int((1-noise_power)*10)
+
+        round_scale  = int((1-noise_power)*10)
+        feature_perb = Noise_injection(feature_in,"noise",noise_power)
+        feature_perb = Noise_injection(feature_perb,"round",round_scale)
+        print(round_scale)
+        exit(0)
+        # feature_perb = Noise_injection(feature_perb,"random_del",noise_power)
+
+    
     elif robustness == "round" :
         assert round_scale >= 0
         feature_in = feature_in * (10**round_scale)
@@ -124,7 +145,7 @@ def Noise_injection(feature_in,robustness="none",noise_power=0.1):
     elif robustness == "none":
         feature_perb = feature_in
     else:
-        raise ValueError("robustness should be one of [noise, flip, combine,round,random_del,none]")
+        raise ValueError("robustness should be one of [noise, flip, round,random_del,none, combine, combinev2, combinev3]")
     return  feature_perb
 
 
@@ -408,6 +429,9 @@ class Facenet(nn.Module):
             x = self.avg(x)
             x = x.view(x.size(0), -1)
             watermark_fin=self.watermark_Decoder(x)
+
+            x=Noise_injection(x,robustness=robustness,noise_power=noise_power)
+
             x = self.Dropout(x)
             x = self.Bottleneck(x)
             x = self.last_bn(x)
